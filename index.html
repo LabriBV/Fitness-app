@@ -75,6 +75,9 @@
     border-color: #f97316;
     color: white;
   }
+  .day-tab.today:not(.active) { border-color: #f97316; }
+  .day-tab.today .day-num { color: #f97316; opacity: 1; font-weight: 800; }
+  .day-tab.active.today .day-num { color: white; }
   .day-tab .day-num {
     font-size: 11px;
     opacity: 0.7;
@@ -1330,7 +1333,7 @@ const workouts = [
     ]}
   ]},
 
-  { day: "Zondag", title: "Actief Herstel", focus: "Wandelen · Mobility · Herstel", exercises: [
+  { day: "Zondag", title: "Actief Herstel", focus: "Wandelen · Mobility · Herstel · Ideale instapdag", exercises: [
     { type: "warmup", variants: [
       { name: "Wandeling buiten", sets: "20-30 min", tip: "Rustig tempo, frisse lucht. Bloed laten circuleren." },
       { name: "Lichte fietstocht", sets: "30 min", tip: "Hometrainer laag tempo of echt buiten. Hartslag onder 130." },
@@ -1592,12 +1595,20 @@ function openEquipmentSettings() {
 const DELOAD_FACTOR = 0.6;
 const DELOAD_EVERY = 4;
 
+// Maandag van de week waarin een datum valt (programma-weken lopen ma→zo)
+function mondayOf(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const offset = (d.getDay() + 6) % 7; // ma=0 … zo=6
+  d.setDate(d.getDate() - offset);
+  return d;
+}
+
 function programWeekNumber() {
   if (!deloadState.startDate) { deloadState.startDate = todayKey(); }
-  const start = new Date(deloadState.startDate + 'T00:00:00');
-  const now = new Date(); now.setHours(0,0,0,0);
-  const days = Math.floor((now - start) / 86400000);
-  return Math.max(1, Math.floor(days / 7) + 1);
+  const start = mondayOf(deloadState.startDate);
+  const now = mondayOf(todayKey());
+  const weeks = Math.round((now - start) / (7 * 86400000));
+  return Math.max(1, weeks + 1);
 }
 
 function isDeloadWeek() {
@@ -1626,8 +1637,10 @@ function toggleDeload() {
 }
 
 function resetProgramStart() {
-  if (!confirm('Programma-week teller resetten naar vandaag (week 1)?')) return;
-  deloadState.startDate = todayKey();
+  if (!confirm('Programma-week teller resetten (deze week = week 1)?')) return;
+  const d = new Date(); d.setHours(0,0,0,0);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  deloadState.startDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   deloadState.manualOverride = null;
   saveState();
   renderWorkout();
@@ -2224,12 +2237,21 @@ function selectVariant(idx) {
   renderWorkout();
 }
 
+// Index in workouts[] van de echte weekdag: workouts begint op maandag, JS getDay() op zondag
+function todayWorkoutIdx() {
+  return (new Date().getDay() + 6) % 7;
+}
+
 function renderTabs() {
+  const today = todayWorkoutIdx();
   document.getElementById('dayTabs').innerHTML = workouts.map((w, i) =>
-    `<div class="day-tab ${i === currentDay ? 'active' : ''}" onclick="selectDay(${i})">
-      <span class="day-num">DAG ${i+1}</span>${w.day}
+    `<div class="day-tab ${i === currentDay ? 'active' : ''} ${i === today ? 'today' : ''}" onclick="selectDay(${i})">
+      <span class="day-num">${i === today ? '● VANDAAG' : 'DAG ' + (i+1)}</span>${w.day}
     </div>`
   ).join('');
+  // Scroll het actieve tabblad in beeld
+  const active = document.querySelector('.day-tab.active');
+  if (active && active.scrollIntoView) active.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 function parseSetCount(setsStr) {
@@ -2252,7 +2274,7 @@ function renderWorkout() {
       <h2 class="workout-title">${w.title}</h2>
       <p class="workout-focus">${w.focus}</p>
       <div class="week-bar ${isDeloadWeek() ? 'deload' : ''}" onclick="toggleDeload()">
-        <span>📅 Week ${programWeekNumber()} · ${isDeloadWeek() ? '🧊 DELOAD — 60% gewicht' : 'Normaal'}${deloadState.manualOverride !== null ? ' (handmatig)' : ''}</span>
+        <span>📅 ${deloadState.startDate > todayKey() ? 'Instapdag · programma start morgen' : 'Week ' + programWeekNumber() + ' · ' + (isDeloadWeek() ? '🧊 DELOAD — 60% gewicht' : 'Normaal')}${deloadState.manualOverride !== null ? ' (handmatig)' : ''}</span>
         <span style="opacity:0.7;font-size:11px;">tik = wissel</span>
       </div>
       <button onclick="startTrainingFromFirstIncomplete()" style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#ef4444);color:white;border:0;border-radius:14px;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:18px;">🎯 Start training (focus-mode)</button>
@@ -3172,6 +3194,18 @@ async function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) applyState(JSON.parse(raw));
   } catch(e) { console.warn('Laden mislukt:', e); }
+  // Eerste keer: programma start deze week, of — bij een zondag-instap — de maandag erna
+  if (!deloadState.startDate) {
+    const d = new Date(); d.setHours(0,0,0,0);
+    if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+    deloadState.startDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  // Nieuwe dag? Spring naar de workout van vandaag.
+  if (deloadState.lastOpened !== todayKey()) {
+    currentDay = todayWorkoutIdx();
+    deloadState.lastOpened = todayKey();
+    saveState();
+  }
   document.querySelectorAll('.variant-btn').forEach((btn, i) => {
     btn.classList.toggle('active', i === activeVariant);
   });
