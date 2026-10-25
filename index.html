@@ -1,0 +1,3202 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>PadelFit — Ochtendprogramma</title>
+<meta name="description" content="Kracht + conditie programma met rust-timers, auto-progressie en trainingslog">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<!-- iOS beginscherm-app -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PadelFit">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f1f5f9;
+    min-height: 100vh;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  .focus-view, .rest-overlay, .log-overlay {
+    padding-top: calc(16px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  .update-toast {
+    position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    background: #1e293b; border: 1px solid #f97316; color: #f1f5f9;
+    padding: 14px 16px; border-radius: 12px; z-index: 2000; display: none;
+    align-items: center; justify-content: space-between; gap: 12px; font-size: 14px;
+  }
+  .update-toast.open { display: flex; }
+  .update-toast button { background: #f97316; border: 0; color: white; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #f97316, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle { color: #94a3b8; margin-bottom: 20px; font-size: 14px; }
+  .day-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .day-tab {
+    background: #1e293b;
+    border: 2px solid #334155;
+    color: #cbd5e1;
+    padding: 12px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 700;
+    min-width: 110px;
+    text-align: center;
+    flex-shrink: 0;
+    line-height: 1.3;
+  }
+  .day-tab.active {
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    border-color: #f97316;
+    color: white;
+  }
+  .day-tab .day-num {
+    font-size: 11px;
+    opacity: 0.7;
+    display: block;
+    margin-bottom: 3px;
+    letter-spacing: 0.5px;
+  }
+  .workout-card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .workout-title { font-size: 22px; margin-bottom: 4px; }
+  .workout-focus {
+    color: #f97316;
+    font-size: 13px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .exercise {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border-left: 4px solid #f97316;
+  }
+  .exercise.done { opacity: 0.55; border-left-color: #22c55e; }
+  .exercise.warmup { border-left-color: #06b6d4; }
+  .exercise.cooldown { border-left-color: #8b5cf6; }
+  .exercise.abs { border-left-color: #ec4899; }
+  .exercise-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+  }
+  .exercise-info { flex: 1; }
+  .exercise-name { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .exercise-meta {
+    color: #94a3b8;
+    font-size: 13px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .check-btn {
+    background: #334155;
+    border: none;
+    color: #f1f5f9;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .check-btn.done { background: #22c55e; }
+  .exercise-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; }
+  .exercise-detail.open { display: block; }
+  .tip {
+    background: #422006;
+    border-left: 3px solid #f97316;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #fdba74;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .timer-bar { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .timer-display {
+    background: #0f172a;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 20px;
+    font-weight: bold;
+    color: #f97316;
+    min-width: 90px;
+    text-align: center;
+    border: 1px solid #334155;
+  }
+  .btn {
+    border: none;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-orange { background: #f97316; }
+  .btn-red { background: #ef4444; }
+  .btn-youtube-search {
+    background: #cc0000;
+    display: block;
+    text-align: center;
+    margin-bottom: 12px;
+    padding: 14px;
+    font-size: 15px;
+  }
+  .sets-tracker {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .sets-label {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .sets-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .set-btn {
+    background: #1e293b;
+    border: 2px solid #475569;
+    color: #cbd5e1;
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    min-width: 60px;
+    transition: all 0.15s;
+  }
+  .set-btn:active { transform: scale(0.95); }
+  .set-btn.done {
+    background: #22c55e;
+    border-color: #16a34a;
+    color: white;
+  }
+  .set-btn.done::after { content: " ✓"; }
+  .exercise-progress {
+    font-size: 12px;
+    color: #22c55e;
+    margin-top: 8px;
+    font-weight: 600;
+  }
+  .weight-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    color: white;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin: 4px 0 8px;
+    letter-spacing: 0.3px;
+  }
+  .progression-note {
+    background: #0c4a6e;
+    border-left: 3px solid #06b6d4;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #7dd3fc;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .progression-note strong { color: #bae6fd; }
+  .weight-badge.adjusted-up {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+  }
+  .weight-badge.adjusted-down {
+    background: linear-gradient(135deg, #eab308, #ca8a04);
+  }
+  .weight-change-indicator {
+    font-size: 11px;
+    margin-left: 6px;
+    opacity: 0.9;
+  }
+  .rpe-prompt {
+    background: #1e293b;
+    border: 2px solid #f97316;
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 12px;
+    animation: slideIn 0.3s ease-out;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .rpe-label {
+    font-size: 14px;
+    color: #f97316;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .rpe-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .rpe-btn {
+    padding: 14px 8px;
+    border-radius: 10px;
+    border: 2px solid;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 13px;
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.2;
+  }
+  .rpe-btn .rpe-icon { font-size: 22px; }
+  .rpe-easy { border-color: #22c55e; color: #22c55e; }
+  .rpe-easy.selected { background: #22c55e; color: white; }
+  .rpe-good { border-color: #06b6d4; color: #06b6d4; }
+  .rpe-good.selected { background: #06b6d4; color: white; }
+  .rpe-hard { border-color: #eab308; color: #eab308; }
+  .rpe-hard.selected { background: #eab308; color: white; }
+  .weight-history {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .weight-history-title {
+    color: #f97316;
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .history-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dashed #1e293b;
+  }
+  .history-entry:last-child { border-bottom: none; }
+  .reset-weight-btn {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .rest-panel {
+    background: #0f172a;
+    border: 1px dashed #475569;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 12px;
+    text-align: center;
+  }
+  .rest-label {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .rest-panel .timer-display {
+    font-size: 26px;
+    min-width: 120px;
+    margin: 0 auto;
+  }
+  .btn-complete {
+    width: 100%;
+    margin-top: 10px;
+    padding: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    border: 2px solid #22c55e;
+    background: transparent;
+    color: #22c55e;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-complete:active { transform: scale(0.98); }
+  .btn-complete.done {
+    background: #22c55e;
+    color: white;
+    border-color: #16a34a;
+  }
+  .set-timer-box {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 12px;
+    text-align: center;
+  }
+  .set-timer-box .timer-display {
+    margin: 8px auto;
+    font-size: 22px;
+  }
+  .btn-set-timer {
+    background: #ec4899;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .log-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    padding: 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .log-overlay.open { display: block; }
+  .log-modal {
+    background: #1e293b;
+    max-width: 720px;
+    margin: 20px auto;
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .log-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .log-stat {
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .log-stat-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #f97316;
+    display: block;
+  }
+  .log-stat-label {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+  .log-entry {
+    background: #0f172a;
+    border-left: 4px solid #22c55e;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+  }
+  .log-entry.partial { border-left-color: #f97316; }
+  .log-entry-date {
+    font-weight: 700;
+    font-size: 14px;
+    color: #f1f5f9;
+  }
+  .log-entry-details {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+  .log-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+  }
+  .log-section-title {
+    font-size: 12px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 16px 0 8px;
+    font-weight: 700;
+  }
+  .progress-bar {
+    background: #0f172a;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f97316, #22c55e);
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .intro-box {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+  .intro-box strong { color: #f97316; }
+  .reset-btn {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-top: 12px;
+    width: 100%;
+  }
+  .variant-selector {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    background: #0f172a;
+    padding: 6px;
+    border-radius: 10px;
+  }
+  .variant-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .variant-btn.active {
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    color: white;
+    border-color: #f97316;
+  }
+
+  /* Focus-view: full-screen oefening */
+  .focus-view {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    z-index: 500;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+  }
+  .focus-view.open { display: block; }
+  .focus-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .focus-close {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 22px;
+    cursor: pointer;
+  }
+  .focus-counter {
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .focus-nav-btn {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .focus-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .focus-card {
+    background: #1e293b;
+    border-radius: 20px;
+    padding: 24px 20px;
+    margin-bottom: 16px;
+  }
+  .focus-type {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #f97316;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .focus-name {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 16px;
+    color: #f1f5f9;
+  }
+  .focus-weight {
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    text-align: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.1s;
+  }
+  .focus-weight:active { transform: scale(0.98); }
+  .focus-weight::after {
+    content: '✎';
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-size: 16px;
+    opacity: 0.7;
+  }
+  .focus-weight.adjusted-up { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .focus-weight.adjusted-down { background: linear-gradient(135deg, #eab308, #ca8a04); }
+  .focus-weight-value {
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .focus-weight-sets {
+    font-size: 16px;
+    font-weight: 600;
+    opacity: 0.95;
+  }
+  .focus-sets-area {
+    background: #0f172a;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .focus-sets-label {
+    font-size: 13px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .focus-sets-grid {
+    display: grid;
+    gap: 10px;
+  }
+  .focus-sets-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .focus-sets-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .focus-sets-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .focus-set-btn {
+    background: #1e293b;
+    border: 2px solid #475569;
+    color: #cbd5e1;
+    padding: 18px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 16px;
+    transition: all 0.15s;
+  }
+  .focus-set-btn:active { transform: scale(0.95); }
+  .focus-set-btn.done {
+    background: #22c55e;
+    border-color: #16a34a;
+    color: white;
+  }
+  .focus-set-btn.done::after { content: " ✓"; }
+  .focus-sets-list { display: flex; flex-direction: column; gap: 8px; }
+  .focus-set-row { display: flex; gap: 8px; align-items: stretch; }
+  .focus-set-row .focus-set-btn {
+    flex: 1; display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; text-align: left;
+  }
+  .focus-set-row .focus-set-btn .set-num { font-size: 14px; opacity: 0.85; }
+  .focus-set-row .focus-set-btn .set-vals { font-size: 17px; font-weight: 800; }
+  .set-edit-btn {
+    width: 48px; border-radius: 12px; border: 2px solid #475569; background: #1e293b;
+    color: #cbd5e1; font-size: 18px; cursor: pointer; flex-shrink: 0;
+  }
+  .set-edit-btn:active { background: #334155; }
+  .orm-badge {
+    margin-top: 12px; text-align: center; font-size: 13px; color: #fbbf24;
+    background: #422006; border-radius: 8px; padding: 8px;
+  }
+  .orm-badge strong { color: #fde68a; }
+  .log-toolbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+  .log-toolbar button {
+    background: #0f172a; border: 1px solid #334155; color: #cbd5e1; padding: 10px 4px;
+    border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+  .chart-card { background: #0f172a; border-radius: 12px; padding: 12px 12px 6px; margin-bottom: 10px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px; }
+  .chart-title { font-weight: 700; font-size: 14px; color: #f1f5f9; }
+  .chart-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .chart-delta { text-align: right; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .chart-now { font-size: 18px; color: #f97316; font-weight: 800; }
+  .chart-empty { color: #64748b; font-size: 13px; text-align: center; padding: 16px; }
+  .plate-line {
+    margin-top: 10px; font-size: 13px; font-weight: 600; background: rgba(15,23,42,0.35);
+    padding: 8px 10px; border-radius: 8px; letter-spacing: 0.2px;
+  }
+  .week-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 12px; font-size: 13px; font-weight: 600;
+    color: #cbd5e1; cursor: pointer;
+  }
+  .week-bar.deload { border-color: #06b6d4; color: #67e8f9; background: #083344; }
+  .deload-tag {
+    display: inline-block; background: #083344; color: #67e8f9; border: 1px solid #06b6d4;
+    font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; margin-left: 8px;
+  }
+  .focus-tip {
+    background: #422006;
+    border-left: 4px solid #f97316;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #fdba74;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .focus-progression {
+    background: #0c4a6e;
+    border-left: 4px solid #06b6d4;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #7dd3fc;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .focus-history {
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .focus-youtube {
+    background: #cc0000;
+    color: white;
+    display: block;
+    text-align: center;
+    padding: 14px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .focus-nav-bar {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .focus-nav-bar button { flex: 1; padding: 16px; font-size: 14px; border-radius: 12px; border: 0; font-weight: 700; cursor: pointer; }
+  .focus-prev { background: #334155; color: white; }
+  .focus-next { background: linear-gradient(135deg, #f97316, #ef4444); color: white; }
+  .focus-prev:disabled, .focus-next:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Rust-overlay bovenop focus-view */
+  .rest-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.96);
+    z-index: 900;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .rest-overlay.open { display: flex; }
+  .rest-overlay-label {
+    font-size: 14px;
+    color: #f97316;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .rest-overlay-label.between { color: #ec4899; }
+  .rest-timer-big {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 1;
+    color: #f97316;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 16px;
+    transition: color 0.3s;
+  }
+  .rest-timer-big.warning { color: #eab308; }
+  .rest-timer-big.critical { color: #ef4444; }
+  .rest-timer-big.done { color: #22c55e; }
+  .rest-next-info {
+    background: #1e293b;
+    border-radius: 14px;
+    padding: 16px 20px;
+    max-width: 400px;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .rest-next-label {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  .rest-next-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+  .rest-next-details {
+    font-size: 13px;
+    color: #cbd5e1;
+  }
+  .rest-buttons {
+    display: flex;
+    gap: 10px;
+    max-width: 400px;
+    width: 100%;
+  }
+  .rest-btn {
+    flex: 1;
+    padding: 16px;
+    border-radius: 12px;
+    border: 0;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .rest-btn-skip {
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    color: white;
+  }
+  .rest-btn-add {
+    background: #334155;
+    color: white;
+  }
+  .rest-btn-close {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+  }
+
+  /* Maak bestaande oefening-kaart klikbaar naar focus-mode */
+  .exercise { cursor: pointer; }
+  .open-focus-hint {
+    font-size: 11px;
+    color: #64748b;
+    text-align: center;
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  /* Edit modal voor gewicht/reps aanpassen */
+  .edit-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 1500;
+    justify-content: center;
+    align-items: flex-end;
+    padding: 16px;
+  }
+  .edit-modal-overlay.open { display: flex; }
+  .edit-modal {
+    background: #1e293b;
+    border-radius: 20px 20px 16px 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .edit-modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    color: #f1f5f9;
+  }
+  .edit-modal-sub {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 20px;
+  }
+  .edit-field {
+    margin-bottom: 18px;
+  }
+  .edit-label {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .edit-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .edit-input {
+    flex: 1;
+    background: #0f172a;
+    border: 2px solid #334155;
+    color: #f1f5f9;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: inherit;
+    -webkit-appearance: none;
+  }
+  .edit-input:focus {
+    outline: none;
+    border-color: #f97316;
+  }
+  .edit-step-btn {
+    background: #334155;
+    border: 0;
+    color: white;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .edit-step-btn:active { background: #475569; }
+  .edit-quick-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .edit-quick-btn {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .edit-quick-btn:active { background: #334155; }
+  .edit-modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .edit-modal-buttons button {
+    flex: 1;
+    padding: 16px;
+    border-radius: 12px;
+    border: 0;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .edit-cancel { background: #334155; color: white; }
+  .edit-save {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+  }
+  .edit-unit-hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💪 PadelFit</h1>
+  <p class="subtitle">60 min · Kracht + conditie · Progressieve opstart</p>
+  <div class="intro-box">
+    <strong>Principe:</strong> push/pull/legs-split met dagelijkse abs en conditie. Tik set af → automatisch 60s rust, 2 min na laatste set. 10s voor einde krijg je een waarschuwing met de volgende oefening aangekondigd.<br><br>
+    <strong>🏋️ Auto-aanpassing:</strong> na elke oefening krijg je de vraag "hoe ging dat?" — <span style="color:#22c55e;font-weight:700;">Te gemakkelijk</span> verhoogt het gewicht, <span style="color:#06b6d4;font-weight:700;">Goed</span> blijft, <span style="color:#eab308;font-weight:700;">Moeilijk</span> verlaagt. Gewichten worden bewaard tussen sessies en passen zich mee aan je progressie.<br><br>
+    <strong>🔔 Geluid:</strong> tik eerst op "Test geluid" hieronder zodat iOS audio activeert. Belangrijk: zet de stille modus (knop aan zijkant van iPhone) UIT, anders blokkeert iOS alle webgeluiden.
+    <button onclick="testSound()" style="display:block;width:100%;background:#22c55e;color:white;border:0;padding:12px;border-radius:8px;font-weight:700;margin-top:12px;cursor:pointer;">🔔 Test geluid</button>
+  </div>
+  <div class="variant-selector" id="variantSelector">
+    <button class="variant-btn active" onclick="selectVariant(0)">Variant A</button>
+    <button class="variant-btn" onclick="selectVariant(1)">Variant B</button>
+    <button class="variant-btn" onclick="selectVariant(2)">Variant C</button>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <div class="day-tabs" id="dayTabs"></div>
+  <div id="workoutContent"></div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="reset-btn" onclick="resetDay()" style="flex:1;margin-top:0;">↻ Reset dag</button>
+    <button class="reset-btn" onclick="openLog()" style="flex:1;margin-top:0;border-color:#f97316;color:#f97316;">📊 Trainingslog</button>
+  </div>
+  <button class="reset-btn" onclick="resetProgramStart()" style="margin-top:8px;font-size:11px;opacity:0.7;">📅 Programma-week teller resetten</button>
+</div>
+
+<div id="logOverlay" class="log-overlay" onclick="if(event.target===this)closeLog()">
+  <div class="log-modal">
+    <div class="log-header">
+      <h2 style="font-size:22px;">📊 Trainingslog</h2>
+      <button onclick="closeLog()" style="background:transparent;border:0;color:#94a3b8;font-size:28px;cursor:pointer;">×</button>
+    </div>
+    <div id="logStats" class="log-stats"></div>
+    <div id="logContent" class="log-content"></div>
+    <button class="reset-btn" onclick="clearLog()" style="margin-top:16px;border-color:#ef4444;color:#ef4444;">🗑 Wis volledige log</button>
+  </div>
+</div>
+
+<div id="updateToast" class="update-toast">
+  <span>🆕 Nieuwe versie beschikbaar</span>
+  <button onclick="location.reload()">Vernieuwen</button>
+</div>
+
+<!-- Edit modal voor gewicht/reps -->
+<div id="editModal" class="edit-modal-overlay" onclick="if(event.target===this)closeEditModal()">
+  <div class="edit-modal">
+    <div class="edit-modal-title" id="editModalTitle">Aanpassen</div>
+    <div class="edit-modal-sub" id="editModalSub">—</div>
+
+    <div class="edit-field">
+      <label class="edit-label">🏋️ Gewicht</label>
+      <div class="edit-input-row">
+        <button class="edit-step-btn" onclick="stepEditWeight(-1)">−</button>
+        <input type="text" inputmode="decimal" class="edit-input" id="editWeightInput" placeholder="bv. 30 kg">
+        <button class="edit-step-btn" onclick="stepEditWeight(+1)">+</button>
+      </div>
+      <div class="edit-quick-row" id="editQuickWeights"></div>
+      <div class="edit-unit-hint">Voorbeelden: "30 kg", "2 × 15 kg", "20 kg KB", "bodyweight"</div>
+    </div>
+
+    <div class="edit-field">
+      <label class="edit-label">📊 Sets × reps</label>
+      <div class="edit-input-row">
+        <input type="text" class="edit-input" id="editSetsInput" placeholder="bv. 4 × 8">
+      </div>
+      <div class="edit-quick-row" id="editQuickSets"></div>
+      <div class="edit-unit-hint">Voorbeelden: "4 × 8", "3 × 10-12", "4 × 6-8", "3 rondes"</div>
+    </div>
+
+    <div class="edit-modal-buttons">
+      <button class="edit-cancel" onclick="closeEditModal()">Annuleren</button>
+      <button class="edit-save" onclick="saveEditModal()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Focus-view: full-screen per oefening -->
+<div id="focusView" class="focus-view">
+  <div id="focusContent"></div>
+</div>
+
+<!-- Rust-overlay bovenop focus-view -->
+<div id="restOverlay" class="rest-overlay">
+  <div id="restOverlayLabel" class="rest-overlay-label">⏸ Rust tussen sets</div>
+  <div id="restTimerBig" class="rest-timer-big">60</div>
+  <div class="rest-next-info" id="restNextInfo" style="display:none;">
+    <div class="rest-next-label">Volgende</div>
+    <div class="rest-next-title" id="restNextTitle">—</div>
+    <div class="rest-next-details" id="restNextDetails">—</div>
+  </div>
+  <div class="rest-buttons">
+    <button class="rest-btn rest-btn-add" onclick="addRestTime(15)">+15s</button>
+    <button class="rest-btn rest-btn-skip" onclick="skipRest()">⏭ Skip</button>
+  </div>
+  <button class="rest-btn rest-btn-close" onclick="closeRestOverlay()" style="margin-top:10px;max-width:400px;width:100%;">Sluiten</button>
+</div>
+<script>
+const workouts = [
+  { day: "Maandag", title: "Push + Explosief", focus: "Borst · Schouders · Triceps · Power", exercises: [
+    { type: "warmup", variants: [
+      { name: "Airbike warming-up", sets: "5 min", tip: "Progressief: 2 min rustig, 3 min matig. Schouder- en polsrotaties tussendoor." },
+      { name: "SkiErg warming-up", sets: "5 min", tip: "Lage weerstand, volledige armextensie. Activeert schouders en core." },
+      { name: "Rower warming-up + band pull-aparts", sets: "5 min", tip: "3 min rustig roeien + 3×15 band pull-aparts tussendoor." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell bench press", sets: "4 × 5-6", weight: "30 kg", progression: "+2.5 kg wanneer alle sets 6 reps halen", tip: "Zwaar laden met bumpers. Schouderbladen ingetrokken, voeten plant. Focus op explosieve concentrische fase." },
+      { name: "Dumbbell bench press", sets: "4 × 8-10", weight: "2 × 22.5 kg", progression: "Wanneer 4×10 lukt: langer negatief (3s) toevoegen", tip: "Meer ROM dan barbell, beter voor schouders. Voeg wekelijks kleine progressie toe." },
+      { name: "Incline barbell press", sets: "4 × 6-8", weight: "45 kg", progression: "+2.5 kg wanneer alle sets 8 reps halen", tip: "Bench op 30-45°. Meer upper chest + voorste delts. Lichter dan flat bench." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell overhead press", sets: "3 × 6-8", weight: "20 kg", progression: "+1.25 kg wanneer alle sets 8 reps halen (fractionals!)", tip: "Uit rack, staand, strikte druk. Core rotsvast, geen been-drive. Padel-killer voor schouderstabiliteit." },
+      { name: "Single-arm KB push press", sets: "3 × 8 per arm", weight: "20 kg KB (32 kg indien sterk)", progression: "Ga naar 32 kg wanneer 3×8 met 20 kg makkelijk voelt", tip: "KB in rack, lichte dip in knieën, explosief omhoog. Anti-rotatie core-werk. Ideaal voor padel." },
+      { name: "Dumbbell Arnold press", sets: "3 × 8-10", weight: "2 × 15 kg", progression: "Ga naar 22.5 kg wanneer 3×10 strikt lukt", tip: "Start met handpalmen naar je toe, roteer naar buiten tijdens drukken. Alle 3 delt-koppen." }
+    ]},
+    { type: "main", variants: [
+      { name: "Medicine ball chest pass (explosief)", sets: "4 × 8", weight: "5-8 kg wall ball", progression: "Focus op maximale snelheid, niet op gewicht verhogen", tip: "Tegen muur of partner, zo hard mogelijk duwen. Power-ontwikkeling voor padel-smash." },
+      { name: "Ring push-ups (TRX/ringen)", sets: "3 × max", weight: "Bodyweight", progression: "Ringen lager plaatsen = zwaarder. Doel: 3×15", tip: "Ringen op heuphoogte. Veel core + stabiliteit. Zak diep tussen ringen." },
+      { name: "Dips (rack-attachment)", sets: "3 × 8-10", weight: "Bodyweight (+5-10 kg indien makkelijk)", progression: "Wanneer 3×10 bodyweight: gewicht toevoegen tussen benen", tip: "Licht voorover leunen voor borst, rechtop voor triceps. Gecontroleerd zakken (2 sec)." }
+    ]},
+    { type: "main", variants: [
+      { name: "EZ-bar skull crushers", sets: "3 × 10-12", weight: "20-25 kg (EZ-bar + schijven)", progression: "+2.5 kg wanneer 3×12 strikt lukt", tip: "Ellebogen vast, enkel onderarm beweegt. Niet te zwaar." },
+      { name: "Cable triceps pushdown (F3)", sets: "3 × 12-15", weight: "Kies zodat laatste set zwaar voelt", progression: "Volgende pin wanneer 3×15 makkelijk voelt", tip: "Ellebogen tegen zij, volledige extensie, knijp onderaan. Knarrevrij en gelenkvriendelijk." },
+      { name: "Dumbbell overhead triceps extension", sets: "3 × 10-12", weight: "1 × 15 kg", progression: "Ga naar 22.5 kg wanneer 3×12 lukt", tip: "Beide handen rond één dumbbell, armen recht omhoog. Zak achter hoofd. Lange kop-focus." }
+    ]},
+    { type: "abs", variants: [
+      { name: "Slam ball slams (20kg)", sets: "3 × 10", weight: "20 kg slam ball", progression: "Focus op explosiviteit, niet gewicht", tip: "Boven hoofd heffen, keihard op grond smijten. Volledige core + lats + schouders. Explosief!" },
+      { name: "Hanging leg raises", sets: "3 × 10-12", weight: "Bodyweight", progression: "Gestrekte benen = zwaarder dan gebogen knieën", tip: "Aan pull-up bar. Gestrekte benen indien mogelijk, anders gebogen knieën." },
+      { name: "Ab wheel / plank rollout (TRX)", sets: "3 × 8-10", weight: "Bodyweight", progression: "Van knieën naar tenen = zwaarder", tip: "Langzaam uitrollen, rug recht, core strak. Indien te zwaar: op knieën." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Borst- en schouderrekking", sets: "3 min", tip: "Deurpost-stretch borst, cross-body schouderrek, nekrotaties." },
+      { name: "Foam roll bovenlichaam", sets: "3 min", tip: "Borst, bovenrug, lats. 30-45s per zone." },
+      { name: "Band shoulder dislocates + pull-aparts", sets: "3 min", tip: "2×10 dislocates + 2×15 pull-aparts. Schouder-gezondheid boost." }
+    ]}
+  ]},
+
+  { day: "Dinsdag", title: "Leg + Rotatie Power", focus: "Benen · Bilspieren · Rotatie · Padel-specifiek", exercises: [
+    { type: "warmup", variants: [
+      { name: "Hometrainer + dynamic mobility", sets: "5 min", tip: "3 min fietsen + leg swings, hip circles, bodyweight squats." },
+      { name: "Agility ladder drills", sets: "5 min", tip: "In-out, two-steps, lateral shuffle. Voeten snel, padel-specifieke footwork." },
+      { name: "Rower + heup-mobility", sets: "5 min", tip: "3 min roeien + 90/90 hip switches, cossack squats." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell back squat", sets: "4 × 6-8", weight: "70 kg", progression: "+2.5 kg wanneer alle sets 8 reps halen", tip: "Bar op upper traps, diep zakken onder parallel, explosief omhoog. Koning van been-oefeningen." },
+      { name: "Goblet squat (KB 32kg)", sets: "4 × 10-12", weight: "32 kg KB", progression: "Wanneer 4×12 vlot lukt → over naar barbell back squat", tip: "Zware KB voor borst. Rechtop blijven, knieën volgen tenen." },
+      { name: "Barbell front squat", sets: "4 × 6-8", weight: "55 kg", progression: "+2.5 kg wanneer alle sets 8 reps halen", tip: "Bar op voorste delts, ellebogen hoog. Meer quad-focus + core dan back squat." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell Romanian deadlift", sets: "4 × 6-8", weight: "70 kg", progression: "+2.5-5 kg wanneer alle sets 8 reps halen", tip: "Bar dicht bij lichaam, heupen naar achter, rug recht. Hamstrings + glutes." },
+      { name: "Single-leg RDL (dumbbell)", sets: "3 × 8 per been", weight: "1 × 15 kg DB", progression: "Ga naar 22.5 kg wanneer 3×8 stabiel lukt", tip: "Eén DB vasthouden, tegenovergestelde been tilt naar achter. Stabiliteit + hamstring. Perfect voor padel-balans." },
+      { name: "Kettlebell deadlift", sets: "4 × 10", weight: "32 kg KB", progression: "Dubbele KB indien je 2× 32 kg hebt", tip: "KB tussen voeten, heupscharnier, rug recht. Volledig opstaan, knijp billen." }
+    ]},
+    { type: "main", variants: [
+      { name: "Bulgarian split squat (dumbbells)", sets: "3 × 8 per been", weight: "2 × 15 kg", progression: "Ga naar 2×22.5 kg wanneer 3×8 sterk lukt", tip: "Achterste voet op bench. Padel-sterk: unilateraal, diep, pijnlijk goed." },
+      { name: "Walking lunges (dumbbells)", sets: "3 × 10 per been", weight: "2 × 15 kg", progression: "Ga naar 2×22.5 kg wanneer 3×10 stabiel lukt", tip: "Stapvoor in rechte lijn. Knie achterste been bijna aan grond. Kracht + coördinatie." },
+      { name: "Box step-ups (Reebok step + DB)", sets: "3 × 10 per been", weight: "2 × 15 kg", progression: "Hogere box of 2×22.5 kg", tip: "Volledig doorduwen met werkend been, andere been niet afzetten. Explosief indien lichter." }
+    ]},
+    { type: "main", variants: [
+      { name: "Kettlebell swing", sets: "4 × 15", weight: "32 kg KB", progression: "Focus op explosiviteit van heup, niet zwaarder", tip: "Explosief heupscharnier, niet squatten. Pure posterior-chain power. Padel-sprint simulatie." },
+      { name: "Jump squats (bodyweight of DB)", sets: "4 × 8", weight: "Bodyweight of 2 × 10 kg", progression: "Gewicht pas toevoegen als landing zacht + gecontroleerd is", tip: "Zak tot parallel, spring maximaal. Volledige landing absorberen. Plyometrisch voor padel." },
+      { name: "Lateral hurdle hops", sets: "4 × 10 per kant", weight: "Bodyweight", progression: "Hogere hurdles of sneller tempo", tip: "Zijwaarts over hurdles springen, zacht landen. Zijdelingse explosiviteit voor padel." }
+    ]},
+    { type: "abs", variants: [
+      { name: "Cable woodchopper (F3)", sets: "3 × 10 per kant", weight: "Medium weerstand", progression: "Volgende pin wanneer 3×10 makkelijk voelt", tip: "Diagonaal van heup naar boven-schouder (of omgekeerd). Rotatiekracht = padel-smash power." },
+      { name: "Medicine ball rotational throw", sets: "3 × 10 per kant", weight: "5-8 kg med ball", progression: "Focus op snelheid + explosiviteit", tip: "Tegen muur, draai vanuit heupen. Snelle rotatie, forehand/backhand patroon." },
+      { name: "Russian twist (KB 20kg)", sets: "3 × 20", weight: "20 kg KB", progression: "Voeten omhoog = zwaarder. Upgrade naar 32 kg", tip: "Voeten omhoog voor zwaarder. Draai vanuit torso, KB tikt grond per kant." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Heup- en hamstringstretch", sets: "4 min", tip: "Pigeon pose, couch stretch, hamstring stretch. Elk 45s per kant." },
+      { name: "Foam roll onderlichaam", sets: "4 min", tip: "Quads, IT-band, kuiten, bilspieren. Rustig en diep ademhalen." },
+      { name: "Lacrosse bal glutes + voeten", sets: "4 min", tip: "Zoek pijnpunten, blijf 30s. Bevrijdt heup-mobility enorm." }
+    ]}
+  ]},
+
+  { day: "Woensdag", title: "Pull + Agility", focus: "Rug · Biceps · Achterste schouders · Padel-footwork", exercises: [
+    { type: "warmup", variants: [
+      { name: "SkiErg warming-up", sets: "5 min", tip: "Rustig starten, progressief tempo. Volledige arm-extensie. Lats pre-activeren." },
+      { name: "Agility ladder - lateral patterns", sets: "5 min", tip: "Lateral shuffle, carioca, ickey shuffle. 3 rondes door de ladder." },
+      { name: "Rower + band pull-aparts", sets: "5 min", tip: "3 min roeien + 3×15 pull-aparts met weerstandsband." }
+    ]},
+    { type: "main", variants: [
+      { name: "Pull-ups (of negatieven)", sets: "4 × max 8", weight: "Bodyweight", progression: "Wanneer 4×8 lukt: gewicht toevoegen met DB tussen benen", tip: "Volledige dead hang, kin over bar. Te zwaar? 5s negatieven (spring omhoog, zak langzaam)." },
+      { name: "Chin-ups (onderhandse greep)", sets: "4 × max 8", weight: "Bodyweight", progression: "Wanneer 4×8 lukt: gewicht toevoegen", tip: "Handpalmen naar je toe, schouderbreedte. Meer biceps, vaak ietsje makkelijker." },
+      { name: "Lat pulldown (Kettler F3)", sets: "4 × 8-10", weight: "Kies zodat laatste set zwaar voelt", progression: "Volgende pin wanneer 4×10 makkelijk voelt", tip: "Brede greep, trek naar bovenste borst, knijp schouderbladen. Controle bij loslaten." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell bent-over row", sets: "4 × 6-8", weight: "55 kg", progression: "+2.5 kg wanneer alle sets 8 reps halen", tip: "Voorovergebogen, rug recht, bar naar navel trekken. Heavy compound voor hele rug." },
+      { name: "Single-arm dumbbell row", sets: "4 × 10 per arm", weight: "1 × 22.5 kg", progression: "Wanneer 4×10 strikt lukt → overweeg 2× 22.5 kg (nieuw aan te schaffen)", tip: "Eén knie op bench, rug recht. Trek elleboog naar heup, knijp schouderblad bovenaan." },
+      { name: "Cable seated row (F3)", sets: "4 × 10-12", weight: "Kies zodat laatste set zwaar voelt", progression: "Volgende pin wanneer 4×12 makkelijk voelt", tip: "Rechtop zitten, trek naar navel, knijp schouderbladen. Langzaam naar voren laten trekken." }
+    ]},
+    { type: "main", variants: [
+      { name: "Face pulls (cable F3 of band)", sets: "3 × 15", weight: "Lichte weerstand, focus op vorm", progression: "Nooit zwaar — altijd strikte techniek", tip: "Trek naar gezicht, ellebogen hoog, externe rotatie einde. Schouder-gezondheid + achterste delts." },
+      { name: "Dumbbell reverse fly", sets: "3 × 12-15", weight: "2 × 10 kg", progression: "Ga naar 15 kg wanneer 3×15 strikt lukt", tip: "Lichte DB's, voorovergebogen, knijp schouderbladen samen. Achterste delts." },
+      { name: "Ring rows (TRX)", sets: "3 × max", weight: "Bodyweight", progression: "Voeten meer naar voren = zwaarder", tip: "Voeten plaatsen bepaalt moeilijkheid. Trek borst naar ringen, knijp schouderbladen." }
+    ]},
+    { type: "main", variants: [
+      { name: "EZ-bar curl", sets: "3 × 10-12", weight: "20-25 kg (EZ-bar + schijven)", progression: "+1.25 kg met fractionals wanneer 3×12 strikt lukt", tip: "Ellebogen vast tegen zij, geen swing. Langzaam laten zakken (2 sec)." },
+      { name: "Dumbbell hammer curl", sets: "3 × 10-12 per arm", weight: "2 × 15 kg", progression: "Ga naar 22.5 kg wanneer 3×12 strikt lukt", tip: "Neutrale greep (handpalm naar binnen). Biceps + brachialis. Ook forearm-work." },
+      { name: "TRX curls", sets: "3 × max", weight: "Bodyweight", progression: "Voeten verder naar voren = zwaarder", tip: "Ringen laag, achterover leunen. Krommen naar gezicht. Bodyweight + core engagement." }
+    ]},
+    { type: "abs", variants: [
+      { name: "Hurdle hops (agility)", sets: "4 × 6 hurdles", weight: "Bodyweight", progression: "Hogere hurdles of sneller tempo", tip: "Zacht landen, direct weer omhoog. Voor-achter of zijwaarts. Plyometrische power." },
+      { name: "Farmer's carry (KB 32kg per hand)", sets: "4 × 40m", weight: "2 × 32 kg KB", progression: "Langere afstand voor uithouding", tip: "Rechtop, schouderbladen ingetrokken, core strak. Totaal-lichaams-kracht." },
+      { name: "Hollow body hold + tuck-ups", sets: "3 × 30s + 10 reps", weight: "Bodyweight", progression: "Langer hold of meer tuck-ups", tip: "Hollow hold 30s, dan 10 tuck-ups meteen erna. Deep core." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Rug- en biceps stretch", sets: "3 min", tip: "Child's pose, cat-cow, deur-biceps stretch." },
+      { name: "Foam roll lats + bovenrug", sets: "3 min", tip: "Arm uitgestrekt, rol lats uit. Bovenrug: kruis armen, rol tegen foam roller." },
+      { name: "Band shoulder mobility flow", sets: "3 min", tip: "Pull-aparts, dislocates, overhead squats met band. Mobility boost." }
+    ]}
+  ]},
+
+  { day: "Donderdag", title: "Conditie + Padel-specifiek", focus: "Hart-long · Agility · Rotatie · Herstel actief", exercises: [
+    { type: "warmup", variants: [
+      { name: "Dynamische mobility flow", sets: "5 min", tip: "Inchworms, world's greatest stretch, leg swings, arm circles." },
+      { name: "Agility ladder - alle patterns", sets: "5 min", tip: "Doorloop alle ladder-drills die je kent, bouw intensiteit op." },
+      { name: "Hometrainer + bovenlichaam mobility", sets: "5 min", tip: "3 min fietsen + schouder-, pols- en wervelzuil-mobility." }
+    ]},
+    { type: "main", variants: [
+      { name: "Airbike intervals", sets: "8 × 30s ON / 30s OFF", weight: "Max effort", progression: "Noteer totale calorieën — verbeter elke week", tip: "Hard 30s (8/10 gevoel), rustig 30s. Simuleert padel-rally duur.", setDuration: 30 },
+      { name: "Rower intervals", sets: "6 × 500m / 1min rust", weight: "Sub-2:00/500m pace", progression: "Verlaag pace met 1-2 sec/500m per week", tip: "Doel: sub-2:00/500m pace. Krachtig trekken, herstel tussen." },
+      { name: "SkiErg intervals", sets: "8 × 30s ON / 30s OFF", weight: "Max effort", progression: "Noteer totale calorieën — verbeter elke week", tip: "Maximaal explosief, volledige range of motion.", setDuration: 30 }
+    ]},
+    { type: "main", variants: [
+      { name: "Medicine ball rotational slams", sets: "4 × 8 per kant", weight: "5-8 kg med ball", progression: "Focus op snelheid, niet gewicht", tip: "Tegen muur op zijkant, draai vanuit heupen, gooi met volledige rotatie. Padel-goud." },
+      { name: "Kettlebell clean & press", sets: "4 × 6 per arm", weight: "20 kg KB", progression: "Ga naar 32 kg wanneer 4×6 vlot lukt", tip: "Explosief van grond naar rack naar overhead. Full-body power." },
+      { name: "Wall ball throws", sets: "4 × 12", weight: "9 kg wall ball", progression: "Hogere target of zwaardere bal", tip: "Squat + krachtige worp naar punt hoog op muur. Vangen in squat." }
+    ]},
+    { type: "main", variants: [
+      { name: "Lateral bounds (zijwaarts springen)", sets: "4 × 8 per kant", weight: "Bodyweight", progression: "Verder springen, zacht landen", tip: "Spring zijwaarts zo ver mogelijk, land zacht, direct tegenovergesteld. Padel-zijwaartse explosiviteit." },
+      { name: "Box step-ups explosief", sets: "4 × 8 per been", weight: "Bodyweight of 2 × 10 kg", progression: "Hogere box of gewicht toevoegen", tip: "Reebok step, maak gebruik van volledige extensie, bijna spring omhoog." },
+      { name: "Skater jumps", sets: "4 × 10 per kant", weight: "Bodyweight", progression: "Verder springen, zacht landen", tip: "Spring zijwaarts op één been, land op andere been, direct weer terug. Padel-footwork." }
+    ]},
+    { type: "main", variants: [
+      { name: "Farmer's carry", sets: "3 × 40m", weight: "2 × 32 kg KB", progression: "Langere afstand of zwaarder", tip: "Heen en weer, 40m totaal. Rechtop, core strak." },
+      { name: "SkiErg steady-state", sets: "10 min", weight: "Nog net kunnen praten", progression: "Meer meters per sessie", tip: "Continu tempo, nog net kunnen praten. Conditiebasis." },
+      { name: "Rower steady-state", sets: "2000m test", weight: "All-out maar consistent", progression: "Tijd verbeteren week na week", tip: "Consistente pace aanhouden. Noteer tijd, probeer te verbeteren volgende keer." }
+    ]},
+    { type: "abs", variants: [
+      { name: "Plank variations circuit", sets: "3 rondes", tip: "30s front + 30s links + 30s rechts. Heupen hoog, rug recht.", setDuration: 90 },
+      { name: "Hanging windshield wipers", sets: "3 × 8 per kant", tip: "Aan pull-up bar, benen 90°, zwaai van links naar rechts. Rotatie-core." },
+      { name: "V-ups + mountain climbers", sets: "3 rondes", tip: "10 V-ups + 30 mountain climbers per ronde, geen pauze binnen." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Foam roll volledig", sets: "5 min", tip: "Alle grote groepen, 45s per zone. Focus waar je voelt stijfheid." },
+      { name: "Yoga flow (cooldown)", sets: "5 min", tip: "Downward dog → cobra → child's pose → pigeon. Langzaam, diep ademhalen." },
+      { name: "Contrast bath hands/gezicht", sets: "3 min", tip: "Koud water gezicht: activeert vagus, versnelt herstel." }
+    ]}
+  ]},
+
+  { day: "Vrijdag", title: "Full Body Power", focus: "Samengesteld · Explosief · Maximaal", exercises: [
+    { type: "warmup", variants: [
+      { name: "Airbike + mobility", sets: "5 min", tip: "3 min fietsen + 2 min dynamic mobility (hip, schouder, enkels)." },
+      { name: "Rower + activation", sets: "5 min", tip: "3 min roeien + glute bridges, band pull-aparts, scapular push-ups." },
+      { name: "SkiErg + core activation", sets: "5 min", tip: "3 min skiën + dead bugs, bird-dogs, plank." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell deadlift", sets: "4 × 5", weight: "85 kg", progression: "+5 kg wanneer alle sets 5 reps cleanly gehaald", tip: "Heavy compound. Bar dicht, rug recht, heupen+knieën samen strekken. Grondlegger van kracht." },
+      { name: "Dumbbell thruster", sets: "4 × 10", weight: "2 × 15 kg", progression: "Ga naar 22.5 kg wanneer 4×10 vlot lukt", tip: "Squat → druk boven hoofd in één vloeiende beweging. Killer full-body." },
+      { name: "Kettlebell complex", sets: "4 rondes: 5 swings + 5 cleans + 5 presses + 5 squats", weight: "16-20 kg KB", progression: "Ga naar 20 kg wanneer 16 kg vlot lukt", tip: "Non-stop, dezelfde kant, dan wissel. Padel-specifieke uithouding + power." }
+    ]},
+    { type: "main", variants: [
+      { name: "Barbell bench press", sets: "3 × 6-8", weight: "32.5 kg", progression: "+2.5 kg wanneer alle sets 8 reps halen", tip: "Zwaarder dan maandag mogelijk, lagere reps. Focus op controle." },
+      { name: "Dumbbell bench press (neutral grip)", sets: "3 × 8-10", weight: "2 × 22.5 kg", progression: "Wanneer 3×10 lukt: langer negatief", tip: "Handpalmen naar elkaar. Schouder-vriendelijker, meer triceps." },
+      { name: "Dips met gewicht (dip-attachment)", sets: "3 × 6-8", weight: "Bodyweight + 10 kg", progression: "+2.5 kg wanneer 3×8 cleanly lukt", tip: "Dumbbell tussen benen of gewichtsvest. Gecontroleerd zakken." }
+    ]},
+    { type: "main", variants: [
+      { name: "Weighted pull-ups", sets: "3 × max", weight: "Bodyweight + 5-10 kg", progression: "+2.5 kg wanneer 3×8 reps lukt", tip: "Dumbbell tussen benen. Noteer gewicht+reps voor progressie." },
+      { name: "Pendlay row (barbell)", sets: "3 × 6-8", weight: "60 kg", progression: "+2.5 kg wanneer alle sets 8 reps halen", tip: "Bar elke rep terug op grond, explosief omhoog trekken naar onderste ribben. Pure rug-power." },
+      { name: "TRX inverted row + pull-ups combo", sets: "3 rondes: 10 rows + 5 pull-ups", weight: "Bodyweight", progression: "Meer reps of kortere pauzes", tip: "Geen pauze tussen rows en pull-ups. Heavy volume rugsessie." }
+    ]},
+    { type: "main", variants: [
+      { name: "Kettlebell swing", sets: "3 × 20", weight: "32 kg KB", progression: "Focus op explosiviteit, niet zwaarder", tip: "Zwaar, explosief, heupscharnier. Pure power-output." },
+      { name: "Slam ball slams", sets: "3 × 15", weight: "20 kg slam ball", progression: "Max effort elke rep", tip: "Max effort elke rep. Volledig boven hoofd, keihard naar beneden." },
+      { name: "Med ball rotational throws", sets: "3 × 10 per kant", weight: "5-8 kg med ball", progression: "Focus op snelheid", tip: "Padel-specifiek rotatie-werk. Explosief en snel." }
+    ]},
+    { type: "abs", variants: [
+      { name: "Plank variations circuit", sets: "3 rondes", weight: "Bodyweight", progression: "Langer holds (45s, 60s per kant)", tip: "30s front + 30s links + 30s rechts, geen pauze binnen ronde.", setDuration: 90 },
+      { name: "Ab wheel / TRX rollout", sets: "3 × 10", weight: "Bodyweight", progression: "Van knieën naar tenen", tip: "Langzaam uitrollen, rug recht. Zwaardere variant: volle extensie." },
+      { name: "Dragon flag progressies", sets: "3 × 6-8", weight: "Bodyweight", progression: "Van gebogen knieën naar gestrekt", tip: "Op bench liggen, vasthouden achter hoofd, lichaam tillen alsof je één stok bent. Regressie: knieën buigen." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Full body stretch", sets: "5 min", tip: "Alle grote groepen, 30-45s per stretch." },
+      { name: "Foam roll + lacrosse bal", sets: "5 min", tip: "Grote zones met foam roll, pijnpunten met lacrosse bal." },
+      { name: "Sauna of warme douche + stretch", sets: "10 min", tip: "Hitte + lichte stretch versnelt herstel voor weekend." }
+    ]}
+  ]},
+
+  { day: "Zaterdag", title: "Padel Prep Performance", focus: "Explosief · Reactievermogen · Smash-power", exercises: [
+    { type: "warmup", variants: [
+      { name: "Dynamische padel-warmup", sets: "6 min", tip: "Airbike 3 min + shoulder taps, lunges, arm circles, hip openers." },
+      { name: "Agility ladder + band shoulders", sets: "6 min", tip: "3 min ladder + band pull-aparts + external rotations." },
+      { name: "Rower + shadow padel strokes", sets: "6 min", tip: "3 min roeien + droge padel-swings (forehand, backhand, smash, bandeja)." }
+    ]},
+    { type: "main", variants: [
+      { name: "Single-arm KB press", sets: "4 × 6-8 per arm", weight: "20 kg KB (32 kg indien sterk)", progression: "Ga naar 32 kg wanneer 4×8 met 20 kg makkelijk voelt", tip: "Anti-rotatie core + schouderstabiliteit. Perfecte carry-over naar padel." },
+      { name: "Landmine press (of barbell op hoek)", sets: "4 × 8 per arm", weight: "15-20 kg schijf + bar", progression: "+2.5 kg wanneer 4×8 strikt lukt", tip: "Bar in hoek, duw diagonaal omhoog. Schouder-vriendelijk, padel-specifieke hoek." },
+      { name: "Dumbbell Arnold press", sets: "4 × 8", weight: "2 × 15 kg", progression: "Ga naar 22.5 kg wanneer 4×8 strikt lukt", tip: "Rotatie tijdens drukken. Raakt alle schouderkoppen." }
+    ]},
+    { type: "main", variants: [
+      { name: "Walking lunges (dumbbells)", sets: "3 × 10 per been", weight: "2 × 15 kg", progression: "Ga naar 2×22.5 kg wanneer 3×10 stabiel lukt", tip: "Stap voor, knie achterste been bijna aan grond. Agility + kracht." },
+      { name: "Reverse lunges + knee drive", sets: "3 × 8 per been", weight: "2 × 10 kg", progression: "Ga naar 2×15 kg wanneer 3×8 cleanly lukt", tip: "Stap naar achter, dan explosief omhoog met knie-drive. Padel-sprint-start." },
+      { name: "Cossack squats", sets: "3 × 8 per been", weight: "Bodyweight of 1 × 15 kg KB", progression: "Gewicht toevoegen wanneer 3×8 zonder problemen lukt", tip: "Breed staan, zak naar één kant, andere been recht. Heupmobility + kracht." }
+    ]},
+    { type: "main", variants: [
+      { name: "Medicine ball rotational throws", sets: "4 × 8 per kant", weight: "5-8 kg med ball", progression: "Focus op snelheid + explosiviteit", tip: "Tegen muur, vol vanuit heupen draaien. Padel-smash simulatie." },
+      { name: "Cable woodchopper high-to-low + low-to-high (F3)", sets: "4 × 10 per richting", weight: "Medium weerstand", progression: "Volgende pin wanneer 4×10 makkelijk voelt", tip: "2×10 high→low, 2×10 low→high per kant. Volledige rotatiekracht." },
+      { name: "Slam ball rotational slam", sets: "4 × 6 per kant", weight: "20 kg slam ball", progression: "Focus op explosiviteit", tip: "Houd ball op zijkant, draai en sla op grond aan andere kant. Brutaal voor padel-rotatie." }
+    ]},
+    { type: "main", variants: [
+      { name: "Agility ladder - reactie drills", sets: "4 × 30s", weight: "Bodyweight", progression: "Sneller tempo, complexere patronen", tip: "In-out, ickey shuffle, crossovers. Zo snel mogelijk.", setDuration: 30 },
+      { name: "Hurdle hops multi-directioneel", sets: "4 × 6 hurdles", weight: "Bodyweight", progression: "Hogere hurdles of sneller", tip: "Voor, zijwaarts, achterwaarts over hurdles. Plyometrisch." },
+      { name: "Airbike sprints all-out", sets: "6 × 20s all-out", weight: "Max effort", progression: "Noteer max RPM per sprint", tip: "Max effort, padel-rally intensiteit.", setDuration: 20 }
+    ]},
+    { type: "main", variants: [
+      { name: "EZ-bar curl + triceps superset", sets: "3 × 10+10", weight: "20 kg EZ-bar + 15 kg DB", progression: "+1.25 kg met fractionals", tip: "Zonder pauze. Pomp voor armen." },
+      { name: "Cable curl + pushdown superset (F3)", sets: "3 × 12+12", weight: "Medium weerstand", progression: "Volgende pin wanneer 3×12 makkelijk", tip: "Continue spanning, geen pauze tussen." },
+      { name: "Hammer curl + dips superset", sets: "3 × 10+max", weight: "2 × 15 kg DB + bodyweight", progression: "Zwaardere DB's of gewicht bij dips", tip: "Hammer curls dan direct dips. Armen volledig gewerkt." }
+    ]},
+    { type: "abs", variants: [
+      { name: "V-ups + mountain climbers", sets: "3 rondes", tip: "10 V-ups + 30 MC per ronde. Geen pauze binnen ronde." },
+      { name: "Slam ball Russian twist", sets: "3 × 20", tip: "Voeten omhoog, slam ball van kant naar kant tikken." },
+      { name: "Side plank reach-throughs", sets: "3 × 10 per kant", tip: "In side plank, bovenste arm onder lichaam door, dan omhoog. Rotatie + stabiliteit." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Mobility flow", sets: "5 min", tip: "Yoga: downward dog → cobra → child's pose → pigeon → cat-cow." },
+      { name: "Foam roll + band stretches", sets: "5 min", tip: "Focus op heupen, IT-band, lats en borst." },
+      { name: "Ademhaling + visualisatie", sets: "5 min", tip: "4-7-8 ademhaling + visualiseer volgende padel-match." }
+    ]}
+  ]},
+
+  { day: "Zondag", title: "Actief Herstel", focus: "Wandelen · Mobility · Herstel", exercises: [
+    { type: "warmup", variants: [
+      { name: "Wandeling buiten", sets: "20-30 min", tip: "Rustig tempo, frisse lucht. Bloed laten circuleren." },
+      { name: "Lichte fietstocht", sets: "30 min", tip: "Hometrainer laag tempo of echt buiten. Hartslag onder 130." },
+      { name: "Rustig roeien", sets: "20 min", tip: "Rower op laag tempo, techniek-focus." }
+    ]},
+    { type: "main", variants: [
+      { name: "Mobility routine volledig", sets: "15 min", tip: "Heupen, schouders, rug, enkels. Elke stretch 45-60s." },
+      { name: "Yoga flow voor herstel", sets: "15 min", tip: "Volledige yoga sequentie, focus op ademhaling." },
+      { name: "Lacrosse bal + foam roll deep work", sets: "15 min", tip: "Pijnpunten opzoeken, druk aanhouden 30-60s. Myofasciaal release." }
+    ]},
+    { type: "abs", variants: [
+      { name: "Licht core werk", sets: "3 × 12", tip: "Dead bugs + bird-dogs. Focus op controle, niet intensiteit." },
+      { name: "Pallof press (band)", sets: "3 × 10 per kant", tip: "Band op hoogte navel, druk weg van lichaam, houd 2s. Anti-rotatie." },
+      { name: "Hollow body holds", sets: "3 × 20-30s", tip: "Rustig, volledige spanning, ademhalen." }
+    ]},
+    { type: "cooldown", variants: [
+      { name: "Ademhaling + reflectie", sets: "5 min", tip: "4-7-8 ademhaling. Plan komende week, noteer progressie." },
+      { name: "Meditatie geleid", sets: "10 min", tip: "App of gewoon stil zitten. Mentale reset voor nieuwe week." },
+      { name: "Warm bad of sauna", sets: "15 min", tip: "Hitte ontspant spieren, versnelt herstel. Altijd hydrateren nadien." }
+    ]}
+  ]}
+];
+
+let currentDay = 0;
+let timerInterval = null;
+let timerSeconds = 0;
+let setTimerInterval = null;
+let setTimerSeconds = 0;
+let completedExercises = {};
+let workoutLog = {};
+let activeVariant = 0;
+let weightAdjustments = {}; // { exerciseName: { current: "60 kg", history: [...] } }
+let pendingRPE = {}; // { dayIdx_exIdx: true } — toont RPE-prompt na voltooiing
+let setsOverrides = {}; // { exerciseName: "3 × 10" } — gebruiker-aangepaste sets
+let editModalState = { exIdx: null }; // tijdelijke state tijdens bewerken
+let setLog = {}; // { exerciseName: [ { date, sets: [ {w, r} ] } ] } — gewicht×reps per set
+let deloadState = { startDate: null, manualOverride: null }; // programma-start + handmatige deload-toggle
+const DEFAULT_EQUIPMENT = { bar: 20, plates: [20, 15, 10, 5, 2.5, 1.25] }; // per kant beschikbaar
+let equipment = Object.assign({}, DEFAULT_EQUIPMENT);
+
+// Haal huidige (mogelijk aangepaste) sets op
+function getCurrentSets(exerciseName, originalSets) {
+  return setsOverrides[exerciseName] || originalSets;
+}
+
+// Open edit-modal voor huidige oefening in focus
+function openEditModal(exIdx) {
+  editModalState.exIdx = exIdx;
+  const ex = resolvedEx(workouts[currentDay].exercises[exIdx]);
+  const currentWeight = getCurrentWeight(ex.name, ex.weight || '');
+  const currentSets = getCurrentSets(ex.name, ex.sets);
+
+  document.getElementById('editModalTitle').textContent = ex.name;
+  document.getElementById('editModalSub').textContent = 'Pas gewicht of sets aan voor deze sessie';
+  document.getElementById('editWeightInput').value = currentWeight || '';
+  document.getElementById('editSetsInput').value = currentSets;
+
+  // Vul snelle keuzes op basis van oefening-type
+  renderQuickPresets(ex);
+
+  document.getElementById('editModal').classList.add('open');
+}
+
+function renderQuickPresets(ex) {
+  const quickWeightsEl = document.getElementById('editQuickWeights');
+  const quickSetsEl = document.getElementById('editQuickSets');
+  const name = ex.name.toLowerCase();
+
+  // Gewicht-presets op basis van type
+  let weightPresets = [];
+  if (name.includes('kb') || name.includes('kettlebell')) {
+    weightPresets = ['16 kg KB', '20 kg KB', '32 kg KB'];
+  } else if (name.includes('dumbbell') || name.includes('db') || name.includes('arnold') || name.includes('hammer') || name.includes('single-arm')) {
+    weightPresets = ['2 × 10 kg', '2 × 15 kg', '2 × 22.5 kg', '1 × 22.5 kg'];
+  } else if (name.includes('bench') || name.includes('squat') || name.includes('deadlift') || name.includes('row') || name.includes('press') || name.includes('curl')) {
+    weightPresets = ['20 kg', '30 kg', '40 kg', '50 kg', '60 kg', '70 kg', '80 kg', '90 kg'];
+  } else {
+    weightPresets = ['Bodyweight', '10 kg', '20 kg', '2 × 15 kg'];
+  }
+  quickWeightsEl.innerHTML = weightPresets.map(p =>
+    `<button class="edit-quick-btn" onclick="setEditWeight('${p.replace(/'/g, "\\'")}')">${p}</button>`
+  ).join('');
+
+  // Sets-presets
+  const setsPresets = ['3 × 8', '3 × 10', '3 × 12', '4 × 5', '4 × 6-8', '4 × 8-10', '4 × 10-12', '5 × 5'];
+  quickSetsEl.innerHTML = setsPresets.map(p =>
+    `<button class="edit-quick-btn" onclick="setEditSets('${p}')">${p}</button>`
+  ).join('');
+}
+
+function setEditWeight(val) {
+  document.getElementById('editWeightInput').value = val;
+}
+function setEditSets(val) {
+  document.getElementById('editSetsInput').value = val;
+}
+
+// Verhoog/verlaag het gewicht in het input-veld
+function stepEditWeight(direction) {
+  const input = document.getElementById('editWeightInput');
+  const current = input.value.trim();
+  if (!current || current.toLowerCase().includes('bodyweight') || current.toLowerCase().includes('max')) {
+    return;
+  }
+  const stepped = parseAndStepWeight(current, direction);
+  input.value = stepped;
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('open');
+  editModalState.exIdx = null;
+}
+
+function saveEditModal() {
+  if (editModalState.exIdx === null) return;
+  const ex = resolvedEx(workouts[currentDay].exercises[editModalState.exIdx]);
+  const exName = ex.name;
+  const newWeight = document.getElementById('editWeightInput').value.trim();
+  const newSets = document.getElementById('editSetsInput').value.trim();
+
+  // Gewicht opslaan
+  if (newWeight && newWeight !== (ex.weight || '')) {
+    if (!weightAdjustments[exName]) {
+      weightAdjustments[exName] = { current: newWeight, history: [] };
+    } else {
+      weightAdjustments[exName].current = newWeight;
+    }
+  } else if (!newWeight) {
+    if (weightAdjustments[exName]) delete weightAdjustments[exName];
+  }
+
+  // Sets opslaan
+  if (newSets && newSets !== ex.sets) {
+    setsOverrides[exName] = newSets;
+  } else if (newSets === ex.sets) {
+    delete setsOverrides[exName];
+  }
+
+  // Als set-count veranderd is, voltooide sets opruimen (anders tel-mismatch)
+  const oldSetCount = parseSetCount(ex.sets);
+  const newSetCount = parseSetCount(newSets);
+  if (oldSetCount !== newSetCount) {
+    const key = currentDay + '_sets';
+    if (completedExercises[key] && completedExercises[key][editModalState.exIdx]) {
+      // Filter alleen nog bestaande set-indexen
+      completedExercises[key][editModalState.exIdx] = completedExercises[key][editModalState.exIdx].filter(i => i < newSetCount);
+    }
+    delete pendingRPE[`${currentDay}_${editModalState.exIdx}`];
+  }
+
+  saveState();
+  closeEditModal();
+  if (focusMode.open) renderFocus();
+  renderWorkout();
+}
+
+// Parse gewicht-strings en verhoog/verlaag volgens verstandige stappen
+function parseAndStepWeight(weightStr, direction) {
+  if (!weightStr) return weightStr;
+  // direction: +1 = omhoog, -1 = omlaag, 0 = geen verandering
+
+  // Probeer eerst simpele "X kg" patroon
+  const simple = weightStr.match(/^(\d+(?:\.\d+)?)\s*kg/i);
+  if (simple) {
+    const current = parseFloat(simple[1]);
+    const step = getWeightStep(weightStr, current);
+    const newWeight = Math.max(0, current + direction * step);
+    return weightStr.replace(/^(\d+(?:\.\d+)?)\s*kg/i, `${formatKg(newWeight)} kg`);
+  }
+
+  // Probeer "2 × X kg" (dumbbells)
+  const dumbbell = weightStr.match(/^(\d+)\s*×\s*(\d+(?:\.\d+)?)\s*kg/i);
+  if (dumbbell) {
+    const count = dumbbell[1];
+    const current = parseFloat(dumbbell[2]);
+    const step = getWeightStep(weightStr, current);
+    const newWeight = Math.max(0, current + direction * step);
+    // Rond af naar beschikbare DB's: 10, 15, 22.5 kg
+    const dbValues = [10, 15, 22.5];
+    let rounded = newWeight;
+    if (direction > 0) {
+      rounded = dbValues.find(v => v > current) || current + 2.5;
+    } else if (direction < 0) {
+      rounded = [...dbValues].reverse().find(v => v < current) || Math.max(0, current - 2.5);
+    }
+    return weightStr.replace(/^\d+\s*×\s*\d+(?:\.\d+)?\s*kg/i, `${count} × ${formatKg(rounded)} kg`);
+  }
+
+  // Probeer "X kg KB" (kettlebell) — beschikbaar: 16, 20, 32
+  const kb = weightStr.match(/(\d+(?:\.\d+)?)\s*kg\s*KB/i);
+  if (kb) {
+    const current = parseFloat(kb[1]);
+    const kbValues = [16, 20, 32];
+    let newKb = current;
+    if (direction > 0) {
+      newKb = kbValues.find(v => v > current) || current;
+    } else if (direction < 0) {
+      newKb = [...kbValues].reverse().find(v => v < current) || current;
+    }
+    return weightStr.replace(/\d+(?:\.\d+)?\s*kg\s*KB/i, `${formatKg(newKb)} kg KB`);
+  }
+
+  return weightStr;
+}
+
+function getWeightStep(weightStr, currentWeight) {
+  const lower = weightStr.toLowerCase();
+  // Grote compounds: grotere stappen
+  if (lower.includes('deadlift') || lower.includes('squat')) return 5;
+  // OHP / kleine lifts: fractionals
+  if (currentWeight < 40) return 2.5;
+  // Default
+  return 2.5;
+}
+
+function formatKg(n) {
+  return n % 1 === 0 ? `${n}` : `${n.toFixed(1)}`;
+}
+
+// ======== PLATE CALCULATOR ========
+// Geeft per kant de schijven terug voor een totaalgewicht op de bar.
+function platesPerSide(total) {
+  const perSide = (total - equipment.bar) / 2;
+  if (perSide < 0) return { plates: [], remainder: 0, perSide };
+  let rest = Math.round(perSide * 100) / 100;
+  const out = [];
+  [...equipment.plates].sort((a, b) => b - a).forEach(p => {
+    while (rest >= p - 0.001) { out.push(p); rest = Math.round((rest - p) * 100) / 100; }
+  });
+  return { plates: out, remainder: rest, perSide };
+}
+
+function plateLine(total) {
+  const r = platesPerSide(total);
+  if (r.perSide < 0) return `⚖️ Lichter dan de bar (${equipment.bar} kg)`;
+  if (r.plates.length === 0) return `⚖️ Lege bar (${equipment.bar} kg)`;
+  const txt = r.plates.map(p => (p % 1 === 0 ? p : p.toFixed(2).replace(/0+$/, ''))).join(' + ');
+  const warn = r.remainder > 0.01 ? ` ⚠️ +${r.remainder} kg niet laadbaar` : '';
+  return `⚖️ Per kant: ${txt}${warn}`;
+}
+
+function openEquipmentSettings() {
+  const bar = prompt('Gewicht van je bar (kg):', equipment.bar);
+  if (bar === null) return;
+  const plates = prompt('Beschikbare schijven per kant, gescheiden door komma (kg):', equipment.plates.join(', '));
+  if (plates === null) return;
+  const b = parseFloat(String(bar).replace(',', '.'));
+  const list = plates.split(',').map(s => parseFloat(s.trim().replace(',', '.'))).filter(n => n > 0);
+  if (b > 0) equipment.bar = b;
+  if (list.length) equipment.plates = list;
+  saveState();
+  renderWorkout();
+  if (focusMode.open) renderFocus();
+}
+
+// ======== DELOAD-WEEK ========
+// Programma telt weken vanaf startDate; elke 4e week is deload (60% gewicht).
+// manualOverride: true = forceer deload, false = forceer normaal, null = automatisch.
+const DELOAD_FACTOR = 0.6;
+const DELOAD_EVERY = 4;
+
+function programWeekNumber() {
+  if (!deloadState.startDate) { deloadState.startDate = todayKey(); }
+  const start = new Date(deloadState.startDate + 'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  const days = Math.floor((now - start) / 86400000);
+  return Math.max(1, Math.floor(days / 7) + 1);
+}
+
+function isDeloadWeek() {
+  if (deloadState.manualOverride === true) return true;
+  if (deloadState.manualOverride === false) return false;
+  return programWeekNumber() % DELOAD_EVERY === 0;
+}
+
+// Rond af naar 2.5 kg (kleinste praktische stap op de bar)
+function applyDeload(w) {
+  if (!isDeloadWeek() || !w) return w;
+  let d = Math.max(0, Math.round(w * DELOAD_FACTOR / 2.5) * 2.5);
+  // Een barbell-last kan nooit lichter dan de lege bar
+  if (w >= equipment.bar && d < equipment.bar) d = equipment.bar;
+  return d;
+}
+
+function toggleDeload() {
+  const cur = isDeloadWeek();
+  // Toggle: als automatisch deload → forceer normaal; anders → forceer deload. Dubbel tikken = terug automatisch.
+  if (deloadState.manualOverride === null) deloadState.manualOverride = !cur;
+  else deloadState.manualOverride = null;
+  saveState();
+  renderWorkout();
+  if (focusMode.open) renderFocus();
+}
+
+function resetProgramStart() {
+  if (!confirm('Programma-week teller resetten naar vandaag (week 1)?')) return;
+  deloadState.startDate = todayKey();
+  deloadState.manualOverride = null;
+  saveState();
+  renderWorkout();
+}
+
+// ======== SET-LOGGING (gewicht × reps per set) ========
+// Numeriek gewicht uit een string zoals "30 kg", "2 × 15 kg", "20 kg KB". Bodyweight → 0.
+function parseWeightNum(weightStr) {
+  if (!weightStr) return 0;
+  const s = String(weightStr).toLowerCase();
+  if (s.includes('bodyweight') || s.includes('max effort')) return 0;
+  const m = s.match(/(\d+(?:[.,]\d+)?)\s*kg/);
+  return m ? parseFloat(m[1].replace(',', '.')) : 0;
+}
+
+// Doel-reps uit "4 × 6-8" → 8 (bovenkant range), "3 × max" → 0, "4 × 15" → 15
+function parseTargetReps(setsStr) {
+  const m = String(setsStr).match(/[×x]\s*(?:max\s*)?(\d+)(?:-(\d+))?/i);
+  if (!m) return 0;
+  return parseInt(m[2] || m[1]);
+}
+
+// Epley-formule voor geschatte 1RM
+function estimate1RM(w, r) {
+  if (!w || !r) return 0;
+  if (r === 1) return w;
+  return Math.round(w * (1 + r / 30) * 2) / 2;
+}
+
+function todaySetEntry(exName) {
+  if (!setLog[exName]) setLog[exName] = [];
+  let entry = setLog[exName].find(e => e.date === todayKey());
+  if (!entry) {
+    entry = { date: todayKey(), sets: [] };
+    setLog[exName].unshift(entry);
+    setLog[exName] = setLog[exName].slice(0, 60); // max 60 sessies per oefening
+  }
+  return entry;
+}
+
+function getLoggedSet(exName, setIdx) {
+  const entry = (setLog[exName] || []).find(e => e.date === todayKey());
+  return entry && entry.sets[setIdx] ? entry.sets[setIdx] : null;
+}
+
+// Wat tonen we als voorstel voor deze set: laatst gelogd vandaag, anders huidig gewicht + doel-reps
+function suggestedSet(ex, setIdx) {
+  const logged = getLoggedSet(ex.name, setIdx);
+  if (logged) return logged;
+  const w = parseWeightNum(getCurrentWeight(ex.name, ex.weight || ''));
+  return { w: applyDeload(w), r: parseTargetReps(ex.sets) };
+}
+
+function logSet(exName, setIdx, w, r) {
+  const entry = todaySetEntry(exName);
+  entry.sets[setIdx] = { w: Number(w) || 0, r: Number(r) || 0 };
+}
+
+function unlogSet(exName, setIdx) {
+  const entry = (setLog[exName] || []).find(e => e.date === todayKey());
+  if (!entry) return;
+  entry.sets[setIdx] = undefined;
+  if (entry.sets.every(s => !s)) {
+    setLog[exName] = setLog[exName].filter(e => e !== entry);
+  }
+}
+
+// Beste geschatte 1RM uit de hele historie van een oefening
+function best1RM(exName) {
+  let best = 0;
+  (setLog[exName] || []).forEach(e => e.sets.forEach(s => {
+    if (s && s.w && s.r) best = Math.max(best, estimate1RM(s.w, s.r));
+  }));
+  return best;
+}
+
+// Snelle invoer-prompt (gewicht + reps) voor één set
+function editSetValues(exIdx, setIdx) {
+  const ex = resolvedEx(workouts[currentDay].exercises[exIdx]);
+  const cur = suggestedSet(ex, setIdx);
+  const wIn = prompt(`Gewicht (kg) voor set ${setIdx + 1} van ${ex.name}:`, cur.w);
+  if (wIn === null) return;
+  const rIn = prompt(`Reps voor set ${setIdx + 1}:`, cur.r);
+  if (rIn === null) return;
+  const w = parseFloat(String(wIn).replace(',', '.')) || 0;
+  const r = parseInt(rIn) || 0;
+  logSet(ex.name, setIdx, w, r);
+  // Markeer de set ook als voltooid als hij dat nog niet was
+  const key = currentDay + '_sets';
+  if (!completedExercises[key]) completedExercises[key] = {};
+  if (!completedExercises[key][exIdx]) completedExercises[key][exIdx] = [];
+  if (!completedExercises[key][exIdx].includes(setIdx)) completedExercises[key][exIdx].push(setIdx);
+  updateLogForToday();
+  saveState();
+  renderFocus();
+}
+
+// Haal huidige (mogelijk aangepaste) gewicht op voor een oefening
+function getCurrentWeight(exerciseName, originalWeight) {
+  if (weightAdjustments[exerciseName] && weightAdjustments[exerciseName].current) {
+    return weightAdjustments[exerciseName].current;
+  }
+  return originalWeight;
+}
+
+// Check of gewicht is aangepast t.o.v. origineel
+function getWeightAdjustmentDirection(exerciseName, originalWeight) {
+  const adj = weightAdjustments[exerciseName];
+  if (!adj || !adj.current || adj.current === originalWeight) return 0;
+  // Compare numerieke waarden
+  const origNum = parseFloat((originalWeight.match(/(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  const currNum = parseFloat((adj.current.match(/(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  if (currNum > origNum) return 1;
+  if (currNum < origNum) return -1;
+  return 0;
+}
+
+// Registreer RPE en pas eventueel gewicht aan
+function recordRPE(dayIdx, exIdx, rpe) {
+  const ex = resolvedEx(workouts[dayIdx].exercises[exIdx]);
+  if (!ex.weight) {
+    // Geen gewicht relevant, sluit prompt
+    delete pendingRPE[`${dayIdx}_${exIdx}`];
+    saveState();
+    renderWorkout();
+    return;
+  }
+
+  const exName = ex.name;
+  const currentWeight = getCurrentWeight(exName, ex.weight);
+
+  if (!weightAdjustments[exName]) {
+    weightAdjustments[exName] = { current: currentWeight, history: [] };
+  }
+
+  // RPE: 'easy' = +1 stap, 'good' = geen verandering, 'hard' = -1 stap
+  let newWeight = currentWeight;
+  let change = 0;
+  if (rpe === 'easy') {
+    newWeight = parseAndStepWeight(currentWeight, +1);
+    change = +1;
+  } else if (rpe === 'hard') {
+    newWeight = parseAndStepWeight(currentWeight, -1);
+    change = -1;
+  }
+
+  // Log deze sessie
+  weightAdjustments[exName].history.unshift({
+    date: todayKey(),
+    weight: currentWeight,
+    rpe: rpe,
+    nextWeight: newWeight
+  });
+  // Bewaar enkel laatste 10 entries
+  weightAdjustments[exName].history = weightAdjustments[exName].history.slice(0, 10);
+  weightAdjustments[exName].current = newWeight;
+
+  delete pendingRPE[`${dayIdx}_${exIdx}`];
+  saveState();
+  renderWorkout();
+}
+
+function resetWeight(exerciseName) {
+  if (!confirm(`Reset gewicht voor "${exerciseName}" terug naar startwaarde?`)) return;
+  delete weightAdjustments[exerciseName];
+  saveState();
+  renderWorkout();
+  if (focusMode.open) renderFocus();
+}
+
+// ======== FOCUS-MODE ========
+let focusMode = { open: false, exerciseIdx: 0 };
+let restOverlayState = { open: false, endAt: 0, interval: null, nextExIdx: null, type: 'set' };
+
+function startTrainingFromFirstIncomplete() {
+  // Zoek eerste oefening die nog niet volledig voltooid is
+  const w = workouts[currentDay];
+  const setsData = completedExercises[currentDay + '_sets'] || {};
+  const timeData = completedExercises[currentDay + '_time'] || {};
+  for (let i = 0; i < w.exercises.length; i++) {
+    const ex = resolvedEx(w.exercises[i]);
+    const setCount = parseSetCount(ex.sets);
+    const doneSets = setsData[i] || [];
+    const timeDone = timeData[i] || false;
+    const allDone = (setCount > 0 && doneSets.length === setCount) || (setCount === 0 && timeDone);
+    if (!allDone) {
+      openFocus(i);
+      return;
+    }
+  }
+  // Alles voltooid, open de eerste
+  openFocus(0);
+}
+
+function openFocus(exIdx) {
+  focusMode = { open: true, exerciseIdx: exIdx };
+  document.getElementById('focusView').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderFocus();
+}
+
+function closeFocus() {
+  focusMode.open = false;
+  document.getElementById('focusView').classList.remove('open');
+  document.body.style.overflow = '';
+  renderWorkout();
+}
+
+function focusNav(direction) {
+  const w = workouts[currentDay];
+  const newIdx = focusMode.exerciseIdx + direction;
+  if (newIdx < 0 || newIdx >= w.exercises.length) return;
+  focusMode.exerciseIdx = newIdx;
+  renderFocus();
+  document.getElementById('focusView').scrollTop = 0;
+}
+
+function renderFocus() {
+  if (!focusMode.open) return;
+  const w = workouts[currentDay];
+  const i = focusMode.exerciseIdx;
+  const ex = resolvedEx(w.exercises[i]);
+  const setCount = parseSetCount(ex.sets);
+  const minutes = parseMinutes(ex.sets);
+  const doneSets = (completedExercises[currentDay + '_sets'] || {})[i] || [];
+  const timeDone = (completedExercises[currentDay + '_time'] || {})[i] || false;
+  const allDone = (setCount > 0 && doneSets.length === setCount) || (setCount === 0 && timeDone);
+  const displayWeight = ex.weight ? getCurrentWeight(ex.name, ex.weight) : null;
+  const adjDir = ex.weight ? getWeightAdjustmentDirection(ex.name, ex.weight) : 0;
+  const isPendingRPE = !!pendingRPE[`${currentDay}_${i}`];
+  const history = (weightAdjustments[ex.name] && weightAdjustments[ex.name].history) || [];
+  const weightClass = adjDir > 0 ? 'focus-weight adjusted-up' : adjDir < 0 ? 'focus-weight adjusted-down' : 'focus-weight';
+  const adjArrow = adjDir > 0 ? ' ↑' : adjDir < 0 ? ' ↓' : '';
+  const typeLabel = ex.type === 'warmup' ? '🔥 Warming-up' : ex.type === 'cooldown' ? '🧘 Cooldown' : ex.type === 'abs' ? '💥 Abs / Core' : '💪 Hoofdoefening';
+
+  const gridClass = setCount <= 3 ? 'cols-3' : setCount === 4 ? 'cols-4' : setCount <= 6 ? 'cols-3' : 'cols-4';
+
+  document.getElementById('focusContent').innerHTML = `
+    <div class="focus-header">
+      <button class="focus-close" onclick="closeFocus()">×</button>
+      <div class="focus-counter">Oef ${i + 1} / ${w.exercises.length} · ${w.day}</div>
+      <button class="focus-nav-btn" onclick="closeFocus()">Overzicht</button>
+    </div>
+
+    <div class="focus-card">
+      <div class="focus-type">${typeLabel}</div>
+      <div class="focus-name">${ex.name}</div>
+
+      ${displayWeight ? `
+        <div class="${weightClass}" onclick="openEditModal(${i})">
+          <div class="focus-weight-value">${isDeloadWeek() && parseWeightNum(displayWeight) ? applyDeload(parseWeightNum(displayWeight)) + ' kg' : displayWeight}${adjArrow}</div>
+          <div class="focus-weight-sets">${ex.sets}${isDeloadWeek() && parseWeightNum(displayWeight) ? `<span class="deload-tag">🧊 deload · normaal ${displayWeight}</span>` : ''}</div>
+          ${parseWeightNum(displayWeight) >= equipment.bar && !/×|KB|DB/i.test(displayWeight) ? `<div class="plate-line">${plateLine(applyDeload(parseWeightNum(displayWeight)))}</div>` : ''}
+          <div style="font-size:10px;opacity:0.7;margin-top:6px;letter-spacing:0.5px;">✎ TIK OM AAN TE PASSEN</div>
+        </div>
+      ` : `
+        <div class="focus-weight" style="background:#334155;" onclick="openEditModal(${i})">
+          <div class="focus-weight-value" style="font-size:24px;">${ex.sets}</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:6px;letter-spacing:0.5px;">✎ TIK OM AAN TE PASSEN</div>
+        </div>
+      `}
+
+      ${setCount > 0 ? `
+        <div class="focus-sets-area">
+          <div class="focus-sets-label">Tik per voltooide set${ex.weight ? ' · ✎ = gewicht/reps aanpassen' : ''}</div>
+          <div class="focus-sets-list">
+            ${Array.from({length: setCount}, (_, s) => {
+              const sug = ex.weight ? suggestedSet(ex, s) : null;
+              const done = doneSets.includes(s);
+              const label = sug && (sug.w || sug.r)
+                ? `${sug.w ? sug.w + ' kg' : 'BW'} × ${sug.r || '?'}`
+                : '';
+              return `
+                <div class="focus-set-row">
+                  <button class="focus-set-btn ${done ? 'done' : ''}" onclick="focusToggleSet(${i}, ${s})">
+                    <span class="set-num">Set ${s+1}</span>
+                    ${label ? `<span class="set-vals">${label}</span>` : ''}
+                  </button>
+                  ${ex.weight ? `<button class="set-edit-btn" onclick="editSetValues(${i}, ${s})" title="Aanpassen">✎</button>` : ''}
+                </div>`;
+            }).join('')}
+          </div>
+          ${ex.weight && best1RM(ex.name) > 0 ? `<div class="orm-badge">🏆 Geschatte 1RM: <strong>${best1RM(ex.name)} kg</strong></div>` : ''}
+          ${ex.setDuration ? `
+            <div style="margin-top:14px;text-align:center;">
+              <div class="rest-label" style="color:#ec4899;">⏱ Set-timer (${ex.setDuration}s)</div>
+              <div class="timer-display" id="settimer-focus-${i}" style="font-size:28px;margin:10px auto;">${ex.setDuration}s</div>
+              <button class="btn-set-timer" onclick="startSetTimer('focus-${i}', ${ex.setDuration})">▶ Start set</button>
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      ${setCount === 0 && minutes > 0 ? `
+        <div class="focus-sets-area">
+          <div class="focus-sets-label">Tijd-timer (${minutes} min)</div>
+          <div style="text-align:center;">
+            <div class="timer-display" id="timer-focus-${i}" style="font-size:32px;margin:10px auto;">${minutes}:00</div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+              <button class="btn btn-orange" onclick="startCountdown('focus-${i}', ${minutes * 60})">▶ Start</button>
+              <button class="btn btn-red" onclick="stopCountdown('focus-${i}', ${minutes})">■ Stop</button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      ${setCount === 0 ? `<button class="btn-complete ${timeDone ? 'done' : ''}" onclick="focusToggleTimeDone(${i})">${timeDone ? '✓ Voltooid — tik om ongedaan te maken' : '✓ Markeer als voltooid'}</button>` : ''}
+
+      ${isPendingRPE ? `
+        <div class="rpe-prompt" style="margin-top:16px;">
+          <div class="rpe-label">💬 Hoe ging deze oefening?</div>
+          <div class="rpe-grid">
+            <button class="rpe-btn rpe-easy" onclick="focusRecordRPE(${i}, 'easy')">
+              <span class="rpe-icon">😎</span>
+              <span>Te makkelijk</span>
+              <span style="font-size:10px;opacity:0.8;">+ stap</span>
+            </button>
+            <button class="rpe-btn rpe-good" onclick="focusRecordRPE(${i}, 'good')">
+              <span class="rpe-icon">💪</span>
+              <span>Goed</span>
+              <span style="font-size:10px;opacity:0.8;">behoud</span>
+            </button>
+            <button class="rpe-btn rpe-hard" onclick="focusRecordRPE(${i}, 'hard')">
+              <span class="rpe-icon">😰</span>
+              <span>Moeilijk</span>
+              <span style="font-size:10px;opacity:0.8;">- stap</span>
+            </button>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="focus-tip" style="margin-top:16px;">💡 ${ex.tip}</div>
+      ${ex.progression ? `<div class="focus-progression">📈 <strong>Progressie:</strong> ${ex.progression}</div>` : ''}
+
+      ${history.length > 0 ? `
+        <div class="focus-history">
+          <div class="weight-history-title">📊 Laatste sessies</div>
+          ${history.slice(0, 3).map(h => {
+            const rpeIcon = h.rpe === 'easy' ? '😎' : h.rpe === 'good' ? '💪' : '😰';
+            return `<div class="history-entry"><span>${formatLogDate(h.date)} — ${h.weight}</span><span>${rpeIcon}</span></div>`;
+          }).join('')}
+          <button class="reset-weight-btn" onclick="resetWeight('${ex.name.replace(/'/g, "\\'")}')">↻ Reset naar startgewicht</button>
+        </div>
+      ` : ''}
+
+      <a class="focus-youtube" href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' tutorial')}" target="_blank" rel="noopener">
+        🎥 Zoek demo op YouTube
+      </a>
+    </div>
+
+    <div class="focus-nav-bar">
+      <button class="focus-prev" onclick="focusNav(-1)" ${i === 0 ? 'disabled' : ''}>← Vorige</button>
+      <button class="focus-next" onclick="focusNav(1)" ${i === w.exercises.length - 1 ? 'disabled' : ''}>Volgende →</button>
+    </div>
+  `;
+}
+
+// Focus-mode set-toggle: triggert rust-overlay in plaats van inline timer
+function focusToggleSet(exIdx, setIdx) {
+  const key = currentDay + '_sets';
+  if (!completedExercises[key]) completedExercises[key] = {};
+  if (!completedExercises[key][exIdx]) completedExercises[key][exIdx] = [];
+  const arr = completedExercises[key][exIdx];
+  const pos = arr.indexOf(setIdx);
+  const wasAdded = pos === -1;
+  if (pos > -1) arr.splice(pos, 1); else arr.push(setIdx);
+
+  const ex = resolvedEx(workouts[currentDay].exercises[exIdx]);
+  // Log gewicht × reps mee (voorgesteld gewicht + doel-reps), of verwijder bij uitvinken
+  if (ex.weight) {
+    if (wasAdded) {
+      if (!getLoggedSet(ex.name, setIdx)) {
+        const sug = suggestedSet(ex, setIdx);
+        logSet(ex.name, setIdx, sug.w, sug.r);
+      }
+    } else {
+      unlogSet(ex.name, setIdx);
+    }
+  }
+  updateLogForToday();
+  const setCount = parseSetCount(ex.sets);
+  const isLastSet = arr.length === setCount;
+  const needsRPE = isLastSet && !!ex.weight;
+
+  if (needsRPE) {
+    pendingRPE[`${currentDay}_${exIdx}`] = true;
+  } else if (arr.length < setCount) {
+    delete pendingRPE[`${currentDay}_${exIdx}`];
+  }
+
+  saveState();
+  renderFocus();
+
+  // Start rust-overlay indien set toegevoegd — maar alleen als er geen RPE te beantwoorden is.
+  // Bij de laatste set van een gewicht-oefening wachten we op de RPE-keuze voordat we naar de
+  // volgende oefening springen. Tussentijdse sets: gewoon 60s rust-overlay.
+  if (wasAdded && !needsRPE) {
+    const restSecs = isLastSet ? 120 : 60;
+    openRestOverlay(restSecs, exIdx, isLastSet);
+  } else if (wasAdded && needsRPE) {
+    // Scroll naar de RPE-prompt zodat hij zichtbaar is
+    setTimeout(() => {
+      const prompt = document.querySelector('.rpe-prompt');
+      if (prompt) prompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }
+}
+
+function focusToggleTimeDone(exIdx) {
+  toggleTimeDone(exIdx);
+  renderFocus();
+}
+
+function focusRecordRPE(exIdx, rpe) {
+  recordRPE(currentDay, exIdx, rpe);
+  renderFocus();
+  // Nadat RPE is gekozen: nu pas de lange rust-overlay starten naar volgende oefening
+  const w = workouts[currentDay];
+  const isLastExercise = exIdx === w.exercises.length - 1;
+  if (focusMode.open) {
+    openRestOverlay(120, exIdx, true);
+  }
+}
+
+// ======== REST OVERLAY ========
+function openRestOverlay(secs, currentExIdx, isBetweenExercises) {
+  const overlay = document.getElementById('restOverlay');
+  const label = document.getElementById('restOverlayLabel');
+  const nextInfo = document.getElementById('restNextInfo');
+  const nextTitle = document.getElementById('restNextTitle');
+  const nextDetails = document.getElementById('restNextDetails');
+  const timerEl = document.getElementById('restTimerBig');
+
+  restOverlayState.open = true;
+  restOverlayState.endAt = Date.now() + secs * 1000;
+  restOverlayState.type = isBetweenExercises ? 'between' : 'set';
+
+  // Bepaal volgende oefening
+  let nextExIdx = null;
+  const w = workouts[currentDay];
+  if (isBetweenExercises && currentExIdx + 1 < w.exercises.length) {
+    nextExIdx = currentExIdx + 1;
+  }
+  restOverlayState.nextExIdx = nextExIdx;
+
+  if (isBetweenExercises) {
+    label.textContent = '⏸ Rust — einde oefening';
+    label.classList.add('between');
+    if (nextExIdx !== null) {
+      const nextEx = resolvedEx(w.exercises[nextExIdx]);
+      const nextWeight = nextEx.weight ? getCurrentWeight(nextEx.name, nextEx.weight) : null;
+      nextInfo.style.display = 'block';
+      nextTitle.textContent = nextEx.name;
+      nextDetails.textContent = `${nextWeight ? '🏋️ ' + nextWeight + ' · ' : ''}${nextEx.sets}`;
+    } else {
+      nextInfo.style.display = 'block';
+      nextTitle.textContent = '🏁 Einde workout!';
+      nextDetails.textContent = 'Goed gedaan, vergeet de cooldown niet.';
+    }
+  } else {
+    label.textContent = '⏸ Rust tussen sets';
+    label.classList.remove('between');
+    const currentEx = resolvedEx(w.exercises[currentExIdx]);
+    const doneSets = (completedExercises[currentDay + '_sets'] || {})[currentExIdx] || [];
+    const nextSetNum = doneSets.length + 1;
+    const setCount = parseSetCount(currentEx.sets);
+    if (nextSetNum <= setCount) {
+      nextInfo.style.display = 'block';
+      nextTitle.textContent = `Set ${nextSetNum} van ${setCount}`;
+      nextDetails.textContent = currentEx.name;
+    } else {
+      nextInfo.style.display = 'none';
+    }
+  }
+
+  overlay.classList.add('open');
+  ensureAudioAwake();
+  requestWakeLock();
+
+  let warned = false;
+  let done = false;
+  if (restOverlayState.interval) clearInterval(restOverlayState.interval);
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((restOverlayState.endAt - Date.now()) / 1000));
+    if (remaining >= 60) {
+      timerEl.textContent = `${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
+    } else {
+      timerEl.textContent = remaining;
+    }
+    timerEl.classList.remove('warning', 'critical', 'done');
+    if (remaining <= 3 && remaining > 0) timerEl.classList.add('critical');
+    else if (remaining <= 10 && remaining > 3) timerEl.classList.add('warning');
+
+    // 10-seconden waarschuwing
+    const msLeft = restOverlayState.endAt - Date.now();
+    if (!warned && msLeft <= 10500 && msLeft > 9500) {
+      warned = true;
+      playWarningBeep();
+      if (navigator.vibrate) navigator.vibrate(150);
+      if (isBetweenExercises && nextExIdx !== null) {
+        const nx = resolvedEx(w.exercises[nextExIdx]);
+        speakText(`Nog 10 seconden. Volgende oefening: ${nx.name}`);
+      } else if (!isBetweenExercises) {
+        const ce = resolvedEx(w.exercises[currentExIdx]);
+        const doneSets = (completedExercises[currentDay + '_sets'] || {})[currentExIdx] || [];
+        speakText(`Nog 10 seconden. Volgende: set ${doneSets.length + 1} van ${ce.name}`);
+      }
+    }
+
+    if (remaining <= 0 && !done) {
+      done = true;
+      clearInterval(restOverlayState.interval);
+      restOverlayState.interval = null;
+      timerEl.textContent = '🔔';
+      timerEl.classList.add('done');
+      // Continue alarm tot user actie onderneemt
+      startContinuousAlarm();
+      // Auto-advance naar volgende oefening of sluit overlay na 4 sec (was 2)
+      setTimeout(() => {
+        if (restOverlayState.open) {
+          stopContinuousAlarm();
+          if (isBetweenExercises && nextExIdx !== null) {
+            restOverlayState.open = false;
+            overlay.classList.remove('open');
+            openFocus(nextExIdx);
+          } else {
+            closeRestOverlay();
+          }
+        }
+      }, 4000);
+    }
+  };
+  tick();
+  restOverlayState.interval = setInterval(tick, 250);
+}
+
+function closeRestOverlay() {
+  const overlay = document.getElementById('restOverlay');
+  if (restOverlayState.interval) {
+    clearInterval(restOverlayState.interval);
+    restOverlayState.interval = null;
+  }
+  restOverlayState.open = false;
+  overlay.classList.remove('open');
+  stopContinuousAlarm();
+  releaseWakeLock();
+  stopAudioAwake();
+}
+
+function skipRest() {
+  if (!restOverlayState.open) return;
+  stopContinuousAlarm();
+  const w = workouts[currentDay];
+  const isBetween = restOverlayState.type === 'between';
+  if (isBetween && restOverlayState.nextExIdx !== null) {
+    closeRestOverlay();
+    openFocus(restOverlayState.nextExIdx);
+  } else {
+    closeRestOverlay();
+  }
+}
+
+function addRestTime(secs) {
+  if (!restOverlayState.open) return;
+  restOverlayState.endAt += secs * 1000;
+}
+
+function getVariant(ex) {
+  if (!ex.variants) return ex;
+  return ex.variants[activeVariant] || ex.variants[0];
+}
+
+function resolvedEx(ex) {
+  const v = getVariant(ex);
+  const exName = v.name;
+  return {
+    type: ex.type,
+    name: exName,
+    sets: setsOverrides[exName] || v.sets,
+    tip: v.tip,
+    weight: v.weight,
+    progression: v.progression,
+    setDuration: v.setDuration || ex.setDuration
+  };
+}
+
+function selectVariant(idx) {
+  activeVariant = idx;
+  document.querySelectorAll('.variant-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+  saveState();
+  renderWorkout();
+}
+
+function renderTabs() {
+  document.getElementById('dayTabs').innerHTML = workouts.map((w, i) =>
+    `<div class="day-tab ${i === currentDay ? 'active' : ''}" onclick="selectDay(${i})">
+      <span class="day-num">DAG ${i+1}</span>${w.day}
+    </div>`
+  ).join('');
+}
+
+function parseSetCount(setsStr) {
+  const match = setsStr.match(/^(\d+)\s*[×x]/);
+  if (match) return parseInt(match[1]);
+  const rondes = setsStr.match(/^(\d+)\s*rondes?/i);
+  if (rondes) return parseInt(rondes[1]);
+  return 0;
+}
+
+function parseMinutes(setsStr) {
+  const match = setsStr.match(/(\d+)(?:-\d+)?\s*min/i);
+  return match ? parseInt(match[1]) : 0;
+}
+
+function renderWorkout() {
+  const w = workouts[currentDay];
+  document.getElementById('workoutContent').innerHTML = `
+    <div class="workout-card">
+      <h2 class="workout-title">${w.title}</h2>
+      <p class="workout-focus">${w.focus}</p>
+      <div class="week-bar ${isDeloadWeek() ? 'deload' : ''}" onclick="toggleDeload()">
+        <span>📅 Week ${programWeekNumber()} · ${isDeloadWeek() ? '🧊 DELOAD — 60% gewicht' : 'Normaal'}${deloadState.manualOverride !== null ? ' (handmatig)' : ''}</span>
+        <span style="opacity:0.7;font-size:11px;">tik = wissel</span>
+      </div>
+      <button onclick="startTrainingFromFirstIncomplete()" style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#ef4444);color:white;border:0;border-radius:14px;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:18px;">🎯 Start training (focus-mode)</button>
+      ${w.exercises.map((rawEx, i) => {
+        const ex = resolvedEx(rawEx);
+        const setCount = parseSetCount(ex.sets);
+        const minutes = parseMinutes(ex.sets);
+        const doneSets = (completedExercises[currentDay + '_sets'] || {})[i] || [];
+        const timeDone = (completedExercises[currentDay + '_time'] || {})[i] || false;
+        const allDone = (setCount > 0 && doneSets.length === setCount) || (setCount === 0 && timeDone);
+        const displayWeight = ex.weight ? getCurrentWeight(ex.name, ex.weight) : null;
+        const adjDir = ex.weight ? getWeightAdjustmentDirection(ex.name, ex.weight) : 0;
+        const isPendingRPE = !!pendingRPE[`${currentDay}_${i}`];
+        const history = (weightAdjustments[ex.name] && weightAdjustments[ex.name].history) || [];
+        const weightBadgeClass = adjDir > 0 ? 'weight-badge adjusted-up' : adjDir < 0 ? 'weight-badge adjusted-down' : 'weight-badge';
+        const adjArrow = adjDir > 0 ? '↑' : adjDir < 0 ? '↓' : '';
+        return `
+          <div class="exercise ${ex.type} ${allDone ? 'done' : ''}">
+            <div class="exercise-header" onclick="toggleDetail(${i})">
+              <div class="exercise-info">
+                <div class="exercise-name">${ex.name}</div>
+                ${displayWeight ? `<div class="${weightBadgeClass}">🏋️ ${displayWeight}${adjArrow ? `<span class="weight-change-indicator">${adjArrow}</span>` : ''}</div>` : ''}
+                <div class="exercise-meta">
+                  <span>📊 ${ex.sets}</span>
+                  <span>⏱ Rust: ${setCount > 0 ? '60s' : '—'}</span>
+                </div>
+                ${setCount > 0 ? `<div class="exercise-progress">${doneSets.length}/${setCount} sets voltooid</div>` : ''}
+                ${setCount === 0 && timeDone ? `<div class="exercise-progress">✓ Voltooid</div>` : ''}
+              </div>
+              <button class="check-btn ${allDone ? 'done' : ''}" onclick="event.stopPropagation(); ${setCount > 0 ? `toggleAllSets(${i}, ${setCount})` : `toggleTimeDone(${i})`}">${allDone ? '✓' : ''}</button>
+            </div>
+            <div class="exercise-detail" id="detail-${i}">
+              <button class="btn" style="background:linear-gradient(135deg,#f97316,#ef4444);color:white;width:100%;padding:14px;font-size:14px;margin-bottom:12px;" onclick="openFocus(${i})">🎯 Focus-mode openen</button>
+              ${isPendingRPE ? `
+                <div class="rpe-prompt">
+                  <div class="rpe-label">💬 Hoe ging deze oefening?</div>
+                  <div class="rpe-grid">
+                    <button class="rpe-btn rpe-easy" onclick="recordRPE(${currentDay}, ${i}, 'easy')">
+                      <span class="rpe-icon">😎</span>
+                      <span>Te gemakkelijk</span>
+                      <span style="font-size:10px;opacity:0.8;">+ stap</span>
+                    </button>
+                    <button class="rpe-btn rpe-good" onclick="recordRPE(${currentDay}, ${i}, 'good')">
+                      <span class="rpe-icon">💪</span>
+                      <span>Goed</span>
+                      <span style="font-size:10px;opacity:0.8;">behoud</span>
+                    </button>
+                    <button class="rpe-btn rpe-hard" onclick="recordRPE(${currentDay}, ${i}, 'hard')">
+                      <span class="rpe-icon">😰</span>
+                      <span>Moeilijk</span>
+                      <span style="font-size:10px;opacity:0.8;">- stap</span>
+                    </button>
+                  </div>
+                </div>
+              ` : ''}
+              <div class="tip">💡 ${ex.tip}</div>
+              ${ex.progression ? `<div class="progression-note">📈 <strong>Progressie:</strong> ${ex.progression}</div>` : ''}
+              ${history.length > 0 ? `
+                <div class="weight-history">
+                  <div class="weight-history-title">📊 Laatste sessies</div>
+                  ${history.slice(0, 3).map(h => {
+                    const rpeIcon = h.rpe === 'easy' ? '😎' : h.rpe === 'good' ? '💪' : '😰';
+                    return `<div class="history-entry"><span>${formatLogDate(h.date)} — ${h.weight}</span><span>${rpeIcon}</span></div>`;
+                  }).join('')}
+                  <button class="reset-weight-btn" onclick="resetWeight('${ex.name.replace(/'/g, "\\'")}')">↻ Reset naar startgewicht</button>
+                </div>
+              ` : ''}
+              <a class="btn btn-youtube-search" href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' tutorial')}" target="_blank" rel="noopener">
+                🎥 Zoek demo op YouTube
+              </a>
+              ${setCount > 0 ? `
+                <div class="sets-tracker">
+                  <div class="sets-label">Tik per voltooide set</div>
+                  <div class="sets-grid">
+                    ${Array.from({length: setCount}, (_, s) => `
+                      <button class="set-btn ${doneSets.includes(s) ? 'done' : ''}" onclick="toggleSet(${i}, ${s})">Set ${s+1}</button>
+                    `).join('')}
+                  </div>
+                  ${ex.setDuration ? `
+                    <div class="set-timer-box">
+                      <div class="rest-label">⏱ Set-timer (${ex.setDuration}s)</div>
+                      <div class="timer-display" id="settimer-${i}">${ex.setDuration}s</div>
+                      <button class="btn-set-timer" onclick="startSetTimer(${i}, ${ex.setDuration})">▶ Start set</button>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+              ${setCount === 0 && minutes > 0 ? `
+                <div class="sets-tracker">
+                  <div class="sets-label">Tijd-timer (${minutes} min)</div>
+                  <div class="timer-bar">
+                    <div class="timer-display" id="timer-${i}">${minutes}:00</div>
+                    <button class="btn btn-orange" onclick="startCountdown(${i}, ${minutes * 60})">▶ Start</button>
+                    <button class="btn btn-red" onclick="stopCountdown(${i}, ${minutes})">■ Stop</button>
+                  </div>
+                </div>
+              ` : ''}
+              ${setCount === 0 ? `<button class="btn-complete ${timeDone ? 'done' : ''}" onclick="toggleTimeDone(${i})">${timeDone ? '✓ Voltooid — tik om ongedaan te maken' : '✓ Markeer als voltooid'}</button>` : ''}
+              ${setCount > 0 ? `<div class="rest-panel"><div id="timer-label-${i}" class="rest-label">⏸ Rust timer</div><div class="timer-display" id="timer-${i}">—</div></div>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+  updateProgress();
+}
+
+function selectDay(i) {
+  currentDay = i;
+  if (timerInterval) clearInterval(timerInterval);
+  if (focusMode.open) closeFocus();
+  if (restOverlayState.open) closeRestOverlay();
+  renderTabs();
+  renderWorkout();
+  saveState();
+}
+
+function toggleDetail(i) {
+  document.getElementById(`detail-${i}`).classList.toggle('open');
+}
+
+function toggleTimeDone(exIdx) {
+  const key = currentDay + '_time';
+  if (!completedExercises[key]) completedExercises[key] = {};
+  completedExercises[key][exIdx] = !completedExercises[key][exIdx];
+  updateLogForToday();
+  saveState();
+  renderWorkout();
+  document.getElementById(`detail-${exIdx}`).classList.add('open');
+}
+
+function startCountdown(i, totalSecs) {
+  if (timerInterval) clearInterval(timerInterval);
+  const endAt = Date.now() + totalSecs * 1000;
+  const display = document.getElementById(`timer-${i}`);
+  if (!display) return;
+  const fmt = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  display.style.color = '#06b6d4';
+  ensureAudioAwake();
+  requestWakeLock();
+  activeTimer = { type: 'countdown', endAt, displayId: `timer-${i}`, fmt, done: false };
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+    display.textContent = fmt(remaining);
+    if (remaining <= 5 && remaining > 0) display.style.color = '#ef4444';
+    if (remaining <= 0 && !activeTimer.done) {
+      activeTimer.done = true;
+      clearInterval(timerInterval);
+      display.textContent = "🔔 KLAAR!";
+      display.style.color = '#22c55e';
+      playBeep();
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
+      releaseWakeLock();
+      stopAudioAwake();
+      activeTimer = null;
+    }
+  };
+  tick();
+  timerInterval = setInterval(tick, 250);
+}
+
+function stopCountdown(i, minutes) {
+  if (timerInterval) clearInterval(timerInterval);
+  const display = document.getElementById(`timer-${i}`);
+  if (display) {
+    display.textContent = `${minutes}:00`;
+    display.style.color = '#06b6d4';
+  }
+}
+
+function toggleSet(exIdx, setIdx) {
+  const key = currentDay + '_sets';
+  if (!completedExercises[key]) completedExercises[key] = {};
+  if (!completedExercises[key][exIdx]) completedExercises[key][exIdx] = [];
+  const arr = completedExercises[key][exIdx];
+  const pos = arr.indexOf(setIdx);
+  const wasAdded = pos === -1;
+  if (pos > -1) arr.splice(pos, 1); else arr.push(setIdx);
+  updateLogForToday();
+  // Check: is oefening net volledig voltooid? Trigger RPE-prompt
+  const ex = resolvedEx(workouts[currentDay].exercises[exIdx]);
+  const setCount = parseSetCount(ex.sets);
+  if (arr.length === setCount && ex.weight) {
+    pendingRPE[`${currentDay}_${exIdx}`] = true;
+  } else if (arr.length < setCount) {
+    // Als gebruiker ongedaan maakt, verwijder pending RPE
+    delete pendingRPE[`${currentDay}_${exIdx}`];
+  }
+  saveState();
+  renderWorkout();
+  document.getElementById(`detail-${exIdx}`).classList.add('open');
+  if (wasAdded) {
+    const setCount2 = parseSetCount(ex.sets);
+    const isLastSet = arr.length === setCount2;
+    const restSecs = isLastSet ? 120 : 60;
+    startTimer(exIdx, restSecs, isLastSet, ex, setIdx);
+  }
+}
+
+function toggleAllSets(exIdx, setCount) {
+  if (setCount === 0) return;
+  const key = currentDay + '_sets';
+  if (!completedExercises[key]) completedExercises[key] = {};
+  const current = completedExercises[key][exIdx] || [];
+  const ex = resolvedEx(workouts[currentDay].exercises[exIdx]);
+  if (current.length === setCount) {
+    completedExercises[key][exIdx] = [];
+    delete pendingRPE[`${currentDay}_${exIdx}`];
+  } else {
+    completedExercises[key][exIdx] = Array.from({length: setCount}, (_, i) => i);
+    if (ex.weight) pendingRPE[`${currentDay}_${exIdx}`] = true;
+  }
+  updateLogForToday();
+  saveState();
+  renderWorkout();
+}
+
+function updateProgress() {
+  const w = workouts[currentDay];
+  let total = 0, done = 0;
+  const setsData = completedExercises[currentDay + '_sets'] || {};
+  const timeData = completedExercises[currentDay + '_time'] || {};
+  w.exercises.forEach((rawEx, i) => {
+    const ex = resolvedEx(rawEx);
+    const count = parseSetCount(ex.sets);
+    if (count > 0) {
+      total += count;
+      done += (setsData[i] || []).length;
+    } else {
+      total += 1;
+      if (timeData[i]) done += 1;
+    }
+  });
+  const pct = total > 0 ? (done/total)*100 : 0;
+  document.getElementById('progress').style.width = `${pct}%`;
+}
+
+let audioCtx = null;
+let wakeLock = null;
+let silentOsc = null;
+let silentGain = null;
+let activeTimer = null;
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch(e) { /* Wake Lock niet beschikbaar */ }
+}
+
+function releaseWakeLock() {
+  try {
+    if (wakeLock) {
+      wakeLock.release();
+      wakeLock = null;
+    }
+  } catch(e) {}
+}
+
+// Stille audio-loop: houdt de audio-context levend én geeft iOS/Android een signaal
+// dat deze tab audio afspeelt, waardoor hij niet wordt gepauzeerd bij scherm-uit.
+function ensureAudioAwake() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (!silentOsc) {
+      silentOsc = audioCtx.createOscillator();
+      silentGain = audioCtx.createGain();
+      silentGain.gain.value = 0.001;
+      silentOsc.frequency.value = 440;
+      silentOsc.connect(silentGain);
+      silentGain.connect(audioCtx.destination);
+      silentOsc.start();
+    }
+    // Ook het HTML-audio element activeren — dit gaat wel door iOS stille modus heen
+    // mits het is "ontgrendeld" door een user interaction
+    const a = getAlarmAudio();
+    if (a && a.paused) {
+      a.muted = true;
+      a.play().then(() => { a.pause(); a.muted = false; }).catch(() => {});
+    }
+  } catch(e) {}
+}
+
+function stopAudioAwake() {
+  try {
+    if (silentOsc) {
+      silentOsc.stop();
+      silentOsc.disconnect();
+      silentOsc = null;
+    }
+    if (silentGain) {
+      silentGain.disconnect();
+      silentGain = null;
+    }
+  } catch(e) {}
+}
+
+// Herstel timer-display direct wanneer tab weer zichtbaar wordt
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (activeTimer || timerInterval || setTimerInterval) {
+      requestWakeLock();
+    }
+  }
+});
+
+// HTML5 audio fallback: een korte "beep.wav" als data-URI.
+// Speelt door iOS stille modus en blijft beter werken bij scherm-uit dan WebAudio.
+let alarmAudioEl = null;
+let alarmContinueInterval = null;
+
+function getAlarmAudio() {
+  if (alarmAudioEl) return alarmAudioEl;
+  // Een 0.5s beep van 880Hz, gegenereerd als WAV in data-URI
+  alarmAudioEl = new Audio(generateBeepDataUri(880, 0.5, 0.5));
+  alarmAudioEl.loop = false;
+  alarmAudioEl.preload = 'auto';
+  return alarmAudioEl;
+}
+
+function generateBeepDataUri(freq, durationSec, volume) {
+  const sampleRate = 44100;
+  const numSamples = Math.floor(sampleRate * durationSec);
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  // WAV header
+  const writeStr = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  // Sine wave samples met envelope (snelle attack, langzame decay)
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.min(1, i / 100) * Math.exp(-3 * t / durationSec);
+    const sample = Math.sin(2 * Math.PI * freq * t) * envelope * volume;
+    view.setInt16(44 + i * 2, sample * 32767, true);
+  }
+
+  // Convert to base64
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return 'data:audio/wav;base64,' + btoa(binary);
+}
+
+// Continue alarm tot user afzet
+function startContinuousAlarm() {
+  stopContinuousAlarm();
+  const a = getAlarmAudio();
+  let count = 0;
+  const playOne = () => {
+    try {
+      a.currentTime = 0;
+      a.play().catch(() => {});
+    } catch(e) {}
+  };
+  playOne();
+  alarmContinueInterval = setInterval(() => {
+    count++;
+    playOne();
+    // Trillen elke beep
+    if (navigator.vibrate) navigator.vibrate([400, 100, 400]);
+    // Stop na 30 seconden vanzelf om niet eeuwig te blijven gaan
+    if (count > 30) stopContinuousAlarm();
+  }, 700);
+}
+
+function stopContinuousAlarm() {
+  if (alarmContinueInterval) {
+    clearInterval(alarmContinueInterval);
+    alarmContinueInterval = null;
+  }
+  if (alarmAudioEl) {
+    try { alarmAudioEl.pause(); } catch(e) {}
+  }
+}
+
+function playBeep() {
+  // Probeer 3 dingen tegelijk voor maximale kans op succes
+  // 1. WebAudio sequence (werkt indien tab actief)
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    [0, 0.25, 0.5].forEach((delay, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = idx === 2 ? 1200 : 800;
+      osc.type = 'sine';
+      const start = audioCtx.currentTime + delay;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.5, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0, start + 0.22);
+      osc.start(start);
+      osc.stop(start + 0.25);
+    });
+  } catch(e) {}
+
+  // 2. HTML5 audio (werkt door iOS stille modus mits ontgrendeld)
+  try {
+    const a = getAlarmAudio();
+    a.currentTime = 0;
+    a.volume = 1.0;
+    a.play().catch(() => {});
+  } catch(e) {}
+
+  // 3. Trillen
+  if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
+}
+
+function playWarningBeep() {
+  // Korte WebAudio beep
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 600;
+    osc.type = 'sine';
+    const start = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.4, start + 0.02);
+    gain.gain.linearRampToValueAtTime(0, start + 0.3);
+    osc.start(start);
+    osc.stop(start + 0.35);
+  } catch(e) {}
+
+  // HTML5 audio fallback
+  try {
+    const a = getAlarmAudio();
+    a.currentTime = 0;
+    a.volume = 0.7;
+    a.play().catch(() => {});
+  } catch(e) {}
+}
+
+// Test-geluid functie: activeert audio + speelt sequentie af
+function testSound() {
+  ensureAudioAwake();
+  // Korte vertraging zodat audio context kan opstarten
+  setTimeout(() => {
+    playBeep();
+    speakText('Geluid werkt');
+  }, 100);
+  // Visuele feedback
+  const btn = event.target;
+  if (btn) {
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Geluid getest!';
+    btn.style.background = '#16a34a';
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '#22c55e';
+    }, 2000);
+  }
+}
+
+function speakText(text) {
+  try {
+    if ('speechSynthesis' in window) {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'nl-NL';
+      utter.rate = 1.0;
+      utter.volume = 0.9;
+      window.speechSynthesis.speak(utter);
+    }
+  } catch(e) {}
+}
+
+function startSetTimer(i, secs) {
+  if (setTimerInterval) clearInterval(setTimerInterval);
+  const endAt = Date.now() + secs * 1000;
+  const display = document.getElementById(`settimer-${i}`);
+  if (!display) return;
+  display.style.color = '#ec4899';
+  ensureAudioAwake();
+  requestWakeLock();
+  let done = false;
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+    display.textContent = `${remaining}s`;
+    if (remaining <= 3 && remaining > 0) display.style.color = '#ef4444';
+    if (remaining <= 0 && !done) {
+      done = true;
+      clearInterval(setTimerInterval);
+      display.textContent = "🔔 KLAAR!";
+      display.style.color = '#22c55e';
+      playBeep();
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
+      releaseWakeLock();
+      stopAudioAwake();
+    }
+  };
+  tick();
+  setTimerInterval = setInterval(tick, 250);
+}
+
+function startTimer(i, secs, isBetweenExercises = false, currentEx = null, justCompletedSetIdx = -1) {
+  if (timerInterval) clearInterval(timerInterval);
+  const endAt = Date.now() + secs * 1000;
+  const display = document.getElementById(`timer-${i}`);
+  const label = document.getElementById(`timer-label-${i}`);
+  if (!display) return;
+  const fmt = s => s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : `${s}s`;
+  const w = workouts[currentDay];
+  const nextEx = (isBetweenExercises && i + 1 < w.exercises.length) ? resolvedEx(w.exercises[i + 1]) : null;
+  const nextSetNumber = justCompletedSetIdx + 2;
+  if (label) {
+    if (isBetweenExercises && nextEx) {
+      label.textContent = `⏸ Rust → volgende: ${nextEx.name}`;
+    } else if (isBetweenExercises) {
+      label.textContent = '⏸ Laatste rust — einde workout!';
+    } else if (currentEx) {
+      label.textContent = `⏸ Rust → set ${nextSetNumber} van ${currentEx.name}`;
+    } else {
+      label.textContent = '⏸ Rust tussen sets (60s)';
+    }
+    label.style.color = isBetweenExercises ? '#ec4899' : '#f97316';
+  }
+  display.style.transition = 'transform 0.2s, background 0.3s';
+  display.style.background = isBetweenExercises ? '#ec4899' : '#f97316';
+  display.style.color = '#0f172a';
+  display.style.transform = 'scale(1.1)';
+  setTimeout(() => {
+    display.style.background = '#0f172a';
+    display.style.color = isBetweenExercises ? '#ec4899' : '#f97316';
+    display.style.transform = 'scale(1)';
+  }, 300);
+  display.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  ensureAudioAwake();
+  requestWakeLock();
+  let warned = false;
+  let done = false;
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+    display.textContent = fmt(remaining);
+    if (remaining === 10 && !warned) {
+      warned = true;
+      playWarningBeep();
+      if (navigator.vibrate) navigator.vibrate(150);
+      if (isBetweenExercises && nextEx) {
+        speakText(`Nog 10 seconden. Volgende oefening: ${nextEx.name}`);
+      } else if (currentEx) {
+        speakText(`Nog 10 seconden. Volgende: set ${nextSetNumber} van ${currentEx.name}`);
+      } else {
+        speakText('Nog 10 seconden');
+      }
+    }
+    if (remaining > 10 && !warned && (endAt - Date.now()) <= 10500 && (endAt - Date.now()) > 9500) {
+      warned = true;
+      playWarningBeep();
+      if (navigator.vibrate) navigator.vibrate(150);
+      if (isBetweenExercises && nextEx) {
+        speakText(`Nog 10 seconden. Volgende oefening: ${nextEx.name}`);
+      } else if (currentEx) {
+        speakText(`Nog 10 seconden. Volgende: set ${nextSetNumber} van ${currentEx.name}`);
+      } else {
+        speakText('Nog 10 seconden');
+      }
+    }
+    if (remaining <= 3 && remaining > 0) {
+      display.style.color = '#ef4444';
+    }
+    if (remaining <= 0 && !done) {
+      done = true;
+      clearInterval(timerInterval);
+      display.textContent = isBetweenExercises ? "🔔 VOLGENDE!" : "🔔 GO!";
+      display.style.color = '#22c55e';
+      playBeep();
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
+      releaseWakeLock();
+      stopAudioAwake();
+    }
+  };
+  tick();
+  timerInterval = setInterval(tick, 250);
+}
+
+function resetDay() {
+  if (confirm('Reset voortgang van vandaag?')) {
+    completedExercises[currentDay + '_sets'] = {};
+    completedExercises[currentDay + '_time'] = {};
+    // Ruim pending RPE voor deze dag op
+    Object.keys(pendingRPE).forEach(k => {
+      if (k.startsWith(currentDay + '_')) delete pendingRPE[k];
+    });
+    if (workoutLog[todayKey()]) delete workoutLog[todayKey()];
+    saveState();
+    renderWorkout();
+  }
+}
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function updateLogForToday() {
+  const w = workouts[currentDay];
+  let total = 0, done = 0;
+  const setsData = completedExercises[currentDay + '_sets'] || {};
+  const timeData = completedExercises[currentDay + '_time'] || {};
+  w.exercises.forEach((rawEx, i) => {
+    const ex = resolvedEx(rawEx);
+    const count = parseSetCount(ex.sets);
+    if (count > 0) {
+      total += count;
+      done += (setsData[i] || []).length;
+    } else {
+      total += 1;
+      if (timeData[i]) done += 1;
+    }
+  });
+  if (done === 0) {
+    if (workoutLog[todayKey()]) delete workoutLog[todayKey()];
+    return;
+  }
+  const pct = Math.round((done/total) * 100);
+  workoutLog[todayKey()] = {
+    date: todayKey(),
+    dayIdx: currentDay,
+    dayName: w.day,
+    title: w.title,
+    focus: w.focus,
+    totalItems: total,
+    doneItems: done,
+    percent: pct,
+    completed: pct === 100,
+    volume: todayVolume(),
+    timestamp: Date.now()
+  };
+}
+
+// Totaal getild volume (kg × reps) van vandaag over alle oefeningen
+function todayVolume() {
+  let vol = 0;
+  Object.values(setLog).forEach(sessions => {
+    const e = sessions.find(s => s.date === todayKey());
+    if (e) e.sets.forEach(s => { if (s && s.w && s.r) vol += s.w * s.r; });
+  });
+  return vol;
+}
+
+function openLog() {
+  document.getElementById('logOverlay').classList.add('open');
+  renderLog();
+}
+
+function closeLog() {
+  document.getElementById('logOverlay').classList.remove('open');
+}
+
+function calculateStreak() {
+  const dates = Object.keys(workoutLog).sort().reverse();
+  if (dates.length === 0) return 0;
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  for (let i = 0; i < 365; i++) {
+    const check = new Date(today);
+    check.setDate(check.getDate() - i);
+    const key = `${check.getFullYear()}-${String(check.getMonth()+1).padStart(2,'0')}-${String(check.getDate()).padStart(2,'0')}`;
+    if (workoutLog[key]) {
+      streak++;
+    } else if (i === 0) {
+      continue;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function countThisWeek() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(today);
+  monday.setDate(monday.getDate() + mondayOffset);
+  let count = 0;
+  Object.keys(workoutLog).forEach(key => {
+    const d = new Date(key + 'T00:00:00');
+    if (d >= monday && d <= today) count++;
+  });
+  return count;
+}
+
+function formatLogDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.getTime() === today.getTime()) return 'Vandaag';
+  if (d.getTime() === yesterday.getTime()) return 'Gisteren';
+  const days = ['zo','ma','di','wo','do','vr','za'];
+  const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+function renderLog() {
+  const entries = Object.values(workoutLog).sort((a,b) => b.timestamp - a.timestamp);
+  const statsEl = document.getElementById('logStats');
+  const contentEl = document.getElementById('logContent');
+  statsEl.innerHTML = `
+    <div class="log-stat"><span class="log-stat-value">${calculateStreak()}</span><div class="log-stat-label">Streak 🔥</div></div>
+    <div class="log-stat"><span class="log-stat-value">${countThisWeek()}</span><div class="log-stat-label">Deze week</div></div>
+    <div class="log-stat"><span class="log-stat-value">${entries.length}</span><div class="log-stat-label">Totaal dagen</div></div>
+  `;
+  const toolbar = `
+    <div class="log-toolbar">
+      <button onclick="exportJSON()">⬇️ Backup (JSON)</button>
+      <button onclick="exportCSV()">📄 CSV</button>
+      <button onclick="document.getElementById('importFile').click()">⬆️ Herstel</button>
+      <button onclick="openEquipmentSettings()">⚖️ Schijven</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importJSON(this.files[0])">
+  `;
+  if (entries.length === 0 && Object.keys(setLog).length === 0) {
+    contentEl.innerHTML = toolbar + `<div class="log-empty">Nog geen getrainde dagen.<br>Vink je eerste set af om te starten!</div>`;
+    return;
+  }
+  contentEl.innerHTML = toolbar + renderProgressCharts() + `
+    <div class="log-section-title">Geschiedenis</div>
+    ${entries.map(e => `
+      <div class="log-entry ${e.completed ? '' : 'partial'}">
+        <div class="log-entry-date">${formatLogDate(e.date)} · ${e.dayName} — ${e.title}</div>
+        <div class="log-entry-details">
+          ${e.focus}<br>
+          ${e.doneItems}/${e.totalItems} voltooid · ${e.percent}% ${e.completed ? '✓' : ''}${e.volume ? ` · ${Math.round(e.volume)} kg volume` : ''}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+// ======== PROGRESSIE-GRAFIEKEN ========
+const CHART_LIFTS = ['Barbell bench press', 'Barbell back squat', 'Barbell deadlift', 'Barbell overhead press'];
+
+// Per sessie: beste set (hoogste geschatte 1RM) en volume
+function sessionSeries(exName) {
+  return (setLog[exName] || [])
+    .map(e => {
+      let best = 0, topW = 0, vol = 0;
+      e.sets.forEach(s => {
+        if (!s || !s.w) return;
+        vol += s.w * (s.r || 0);
+        const orm = estimate1RM(s.w, s.r);
+        if (orm > best) { best = orm; topW = s.w; }
+      });
+      return { date: e.date, orm: best, topW, vol };
+    })
+    .filter(p => p.orm > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function lineChartSVG(points, { width = 320, height = 120, color = '#f97316', label = '' } = {}) {
+  if (points.length < 2) return '';
+  const padL = 34, padR = 10, padT = 10, padB = 22;
+  const xs = points.map((_, i) => i);
+  const ys = points.map(p => p.orm);
+  const minY = Math.floor(Math.min(...ys) * 0.9 / 5) * 5;
+  const maxY = Math.ceil(Math.max(...ys) * 1.05 / 5) * 5;
+  const sx = i => padL + (i / (xs.length - 1)) * (width - padL - padR);
+  const sy = v => padT + (1 - (v - minY) / Math.max(1, maxY - minY)) * (height - padT - padB);
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.orm).toFixed(1)}`).join(' ');
+  const area = path + ` L${sx(points.length - 1).toFixed(1)},${(height - padB).toFixed(1)} L${sx(0).toFixed(1)},${(height - padB).toFixed(1)} Z`;
+  const gridLines = [minY, (minY + maxY) / 2, maxY].map(v =>
+    `<line x1="${padL}" x2="${width - padR}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="#334155" stroke-width="1"/>
+     <text x="${padL - 4}" y="${(sy(v) + 4).toFixed(1)}" fill="#64748b" font-size="10" text-anchor="end">${Math.round(v)}</text>`).join('');
+  const dots = points.map((p, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(p.orm).toFixed(1)}" r="3.5" fill="${color}" stroke="#0f172a" stroke-width="1.5"/>`).join('');
+  const first = points[0], last = points[points.length - 1];
+  const xLabels = `<text x="${sx(0)}" y="${height - 6}" fill="#64748b" font-size="10" text-anchor="start">${formatLogDate(first.date)}</text>
+                   <text x="${sx(points.length - 1)}" y="${height - 6}" fill="#64748b" font-size="10" text-anchor="end">${formatLogDate(last.date)}</text>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" preserveAspectRatio="none" style="display:block;height:${height}px;">
+    <defs><linearGradient id="g${label.replace(/\W/g,'')}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity="0.35"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    ${gridLines}
+    <path d="${area}" fill="url(#g${label.replace(/\W/g,'')})"/>
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${xLabels}
+  </svg>`;
+}
+
+function renderProgressCharts() {
+  // Toon de 4 hoofdlifts + elke andere oefening met ≥2 sessies
+  const names = [...CHART_LIFTS, ...Object.keys(setLog).filter(n => !CHART_LIFTS.includes(n))];
+  const cards = names.map(name => {
+    const pts = sessionSeries(name);
+    if (pts.length < 2) return '';
+    const first = pts[0].orm, last = pts[pts.length - 1].orm;
+    const delta = Math.round((last - first) * 2) / 2;
+    const deltaTxt = delta > 0 ? `<span style="color:#22c55e">▲ +${delta} kg</span>` : delta < 0 ? `<span style="color:#ef4444">▼ ${delta} kg</span>` : `<span style="color:#94a3b8">— gelijk</span>`;
+    return `
+      <div class="chart-card">
+        <div class="chart-head">
+          <div><div class="chart-title">${name}</div><div class="chart-sub">Geschatte 1RM · ${pts.length} sessies</div></div>
+          <div class="chart-delta"><div class="chart-now">${last} kg</div>${deltaTxt}</div>
+        </div>
+        ${lineChartSVG(pts, { label: name })}
+      </div>`;
+  }).filter(Boolean).join('');
+  if (!cards) return `<div class="log-section-title">Progressie</div><div class="chart-empty">Grafieken verschijnen zodra een oefening 2+ gelogde sessies heeft.</div>`;
+  return `<div class="log-section-title">Progressie (geschatte 1RM)</div>${cards}`;
+}
+
+// ======== EXPORT / IMPORT ========
+function downloadFile(name, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function exportJSON() {
+  downloadFile(`padelfit-backup-${todayKey()}.json`, JSON.stringify(collectState(), null, 2), 'application/json');
+}
+
+function exportCSV() {
+  const rows = [['datum', 'oefening', 'set', 'gewicht_kg', 'reps', 'geschatte_1rm']];
+  Object.entries(setLog).forEach(([name, sessions]) => {
+    sessions.forEach(e => e.sets.forEach((s, i) => {
+      if (!s) return;
+      rows.push([e.date, name, i + 1, s.w, s.r, estimate1RM(s.w, s.r)]);
+    }));
+  });
+  rows.sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
+  downloadFile(`padelfit-sets-${todayKey()}.csv`, '﻿' + csv, 'text/csv;charset=utf-8');
+}
+
+function importJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || typeof data !== 'object' || !('workoutLog' in data)) throw new Error('Geen geldige PadelFit-backup');
+      if (!confirm(`Backup van ${data.savedAt ? new Date(data.savedAt).toLocaleString('nl-BE') : 'onbekende datum'} terugzetten? Huidige data wordt overschreven.`)) return;
+      applyState(data);
+      saveState();
+      renderTabs(); renderWorkout(); renderLog();
+      alert('✓ Backup teruggezet');
+    } catch (e) {
+      alert('Importeren mislukt: ' + e.message);
+    }
+  };
+  reader.readAsText(file);
+  document.getElementById('importFile').value = '';
+}
+
+async function clearLog() {
+  if (!confirm('Volledige trainingslog wissen? Dit kan niet ongedaan gemaakt worden.')) return;
+  workoutLog = {};
+  await saveState();
+  renderLog();
+}
+
+// ======== PERSISTENTIE (localStorage, werkt in Safari/Chrome/PWA) ========
+const STORAGE_KEY = 'padelfit_state_v1';
+
+function collectState() {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    completedExercises, currentDay, activeVariant, workoutLog,
+    weightAdjustments, pendingRPE, setsOverrides,
+    setLog, deloadState, equipment
+  };
+}
+
+function applyState(s) {
+  if (!s || typeof s !== 'object') return;
+  completedExercises = s.completedExercises || {};
+  currentDay = Number.isInteger(s.currentDay) ? s.currentDay : 0;
+  activeVariant = Number.isInteger(s.activeVariant) ? s.activeVariant : 0;
+  workoutLog = s.workoutLog || {};
+  weightAdjustments = s.weightAdjustments || {};
+  pendingRPE = s.pendingRPE || {};
+  setsOverrides = s.setsOverrides || {};
+  setLog = s.setLog || {};
+  deloadState = Object.assign({ startDate: todayKey(), manualOverride: null }, s.deloadState || {});
+  equipment = Object.assign({}, DEFAULT_EQUIPMENT, s.equipment || {});
+}
+
+async function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+  } catch(e) { console.warn('Opslaan mislukt:', e); }
+}
+
+async function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) applyState(JSON.parse(raw));
+  } catch(e) { console.warn('Laden mislukt:', e); }
+  document.querySelectorAll('.variant-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === activeVariant);
+  });
+  renderTabs();
+  renderWorkout();
+}
+
+loadState();
+
+// ======== SERVICE WORKER (offline + update-melding) ========
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            document.getElementById('updateToast').classList.add('open');
+          }
+        });
+      });
+    }).catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
