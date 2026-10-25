@@ -9,7 +9,7 @@ Persoonlijke kracht + conditie app als PWA. Werkt offline, installeerbaar op het
 | `index.html` | De volledige app (HTML + CSS + JS in één bestand) |
 | `manifest.json` | PWA-manifest: naam, icoon, kleuren, standalone-weergave |
 | `sw.js` | Service worker: cachet de app voor offline gebruik |
-| `icons/` | App-iconen (180 voor iOS, 192/512 voor Android/manifest) |
+| `icon-*.png`, `favicon-32.png` | App-iconen (180 voor iOS, 192/512 voor Android/manifest) — in de hoofdmap |
 | `.nojekyll` | Zorgt dat GitHub Pages alle bestanden ongewijzigd serveert |
 
 ## Online zetten via GitHub Pages (eenmalig, ~10 min)
@@ -20,13 +20,13 @@ Persoonlijke kracht + conditie app als PWA. Werkt offline, installeerbaar op het
    - Zet op **Public** (verplicht voor gratis Pages)
    - Klik **Create repository**
 3. **Bestanden uploaden**: klik op **uploading an existing file** (of **Add file → Upload files**).
-   - Sleep **alle bestanden én de map `icons/`** erin: `index.html`, `manifest.json`, `sw.js`, `.nojekyll`, `README.md`, en de map `icons`.
+   - Sleep **alle bestanden** erin (alles staat in één map, geen submappen).
    - Klik onderaan op **Commit changes**.
 4. **Pages inschakelen**: ga naar **Settings → Pages** (linkermenu).
    - Bij *Source* kies **Deploy from a branch**
    - Branch: **main**, map: **/ (root)** → **Save**
 5. Wacht 1-2 minuten. Bovenaan de Pages-pagina verschijnt je URL:
-   `https://<jouw-gebruikersnaam>.github.io/padelfit/`
+   `https://labribv.github.io/Fitness-app/`
 
 ## Op je iPhone zetten
 

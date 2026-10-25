@@ -1,15 +1,17 @@
-// PadelFit service worker — cache-first voor offline gebruik.
-// Verhoog CACHE_VERSION bij elke release zodat de iPhone de nieuwe versie ophaalt.
-const CACHE_VERSION = 'padelfit-v3';
+// PadelFit service worker.
+// Strategie: index.html network-first (updates direct zichtbaar, offline fallback op cache),
+// alle andere bestanden cache-first.
+// Verhoog CACHE_VERSION bij elke release.
+const CACHE_VERSION = 'padelfit-v5';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icons/icon-180.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-512-maskable.png',
-  './icons/favicon-32.png'
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-512-maskable.png',
+  './favicon-32.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -26,12 +28,32 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function isPageRequest(request, url) {
+  return request.mode === 'navigate'
+    || url.pathname.endsWith('/')
+    || url.pathname.endsWith('/index.html');
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  // Alleen eigen bestanden cachen; externe links (YouTube) gewoon doorlaten.
   if (url.origin !== self.location.origin) return;
 
+  if (isPageRequest(event.request, url)) {
+    // Network-first voor de app-pagina zelf
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Cache-first voor iconen, manifest, enz.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request).then((res) => {
@@ -41,7 +63,6 @@ self.addEventListener('fetch', (event) => {
         }
         return res;
       }).catch(() => cached);
-      // Stale-while-revalidate: geef cache meteen terug, ververs op achtergrond.
       return cached || network;
     })
   );
