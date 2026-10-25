@@ -1,6 +1,6 @@
 // PadelFit service worker — cache-first voor offline gebruik.
 // Verhoog CACHE_VERSION bij elke release zodat de iPhone de nieuwe versie ophaalt.
-const CACHE_VERSION = 'padelfit-v2';
+const CACHE_VERSION = 'padelfit-v3';
 const ASSETS = [
   './',
   './index.html',

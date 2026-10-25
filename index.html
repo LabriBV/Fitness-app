@@ -509,6 +509,23 @@
     line-height: 1.5;
   }
   .intro-box strong { color: #f97316; }
+  .top-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+  .top-btn {
+    flex: 1; padding: 13px; border-radius: 10px; border: 0; font-weight: 700; font-size: 14px;
+    cursor: pointer; background: #22c55e; color: white;
+  }
+  .top-btn.secondary { background: #1e293b; border: 1px solid #334155; color: #cbd5e1; }
+  .help-modal { font-size: 14px; line-height: 1.55; color: #cbd5e1; }
+  .help-section { background: #0f172a; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .help-title { font-weight: 800; color: #f97316; font-size: 15px; margin-bottom: 6px; }
+  .help-section p { margin: 0 0 8px; }
+  .help-section p:last-child { margin-bottom: 0; }
+  .help-section ul { margin: 6px 0 8px 18px; padding: 0; }
+  .help-section li { margin-bottom: 4px; }
+  .help-section strong { color: #f1f5f9; }
+  .tag-easy { color: #22c55e; font-weight: 700; }
+  .tag-good { color: #06b6d4; font-weight: 700; }
+  .tag-hard { color: #eab308; font-weight: 700; }
   .reset-btn {
     background: transparent;
     border: 1px solid #475569;
@@ -1007,11 +1024,9 @@
 <div class="container">
   <h1>💪 PadelFit</h1>
   <p class="subtitle">60 min · Kracht + conditie · Progressieve opstart</p>
-  <div class="intro-box">
-    <strong>Principe:</strong> push/pull/legs-split met dagelijkse abs en conditie. Tik set af → automatisch 60s rust, 2 min na laatste set. 10s voor einde krijg je een waarschuwing met de volgende oefening aangekondigd.<br><br>
-    <strong>🏋️ Auto-aanpassing:</strong> na elke oefening krijg je de vraag "hoe ging dat?" — <span style="color:#22c55e;font-weight:700;">Te gemakkelijk</span> verhoogt het gewicht, <span style="color:#06b6d4;font-weight:700;">Goed</span> blijft, <span style="color:#eab308;font-weight:700;">Moeilijk</span> verlaagt. Gewichten worden bewaard tussen sessies en passen zich mee aan je progressie.<br><br>
-    <strong>🔔 Geluid:</strong> tik eerst op "Test geluid" hieronder zodat iOS audio activeert. Belangrijk: zet de stille modus (knop aan zijkant van iPhone) UIT, anders blokkeert iOS alle webgeluiden.
-    <button onclick="testSound()" style="display:block;width:100%;background:#22c55e;color:white;border:0;padding:12px;border-radius:8px;font-weight:700;margin-top:12px;cursor:pointer;">🔔 Test geluid</button>
+  <div class="top-actions">
+    <button class="top-btn" onclick="testSound()">🔔 Test geluid</button>
+    <button class="top-btn secondary" onclick="openHelp()">ℹ️ Uitleg</button>
   </div>
   <div class="variant-selector" id="variantSelector">
     <button class="variant-btn active" onclick="selectVariant(0)">Variant A</button>
@@ -1037,6 +1052,68 @@
     <div id="logStats" class="log-stats"></div>
     <div id="logContent" class="log-content"></div>
     <button class="reset-btn" onclick="clearLog()" style="margin-top:16px;border-color:#ef4444;color:#ef4444;">🗑 Wis volledige log</button>
+  </div>
+</div>
+
+<div id="helpOverlay" class="log-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="log-modal help-modal">
+    <div class="log-header">
+      <h2 style="font-size:22px;">ℹ️ Zo werkt PadelFit</h2>
+      <button onclick="closeHelp()" style="background:transparent;border:0;color:#94a3b8;font-size:28px;cursor:pointer;">×</button>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🗓️ Het programma</div>
+      <p>Push / pull / legs-split over zeven dagen, met elke dag core en conditie. De app opent vanzelf op de workout van vandaag; tik een ander tabblad aan als je wil wisselen. Elke oefening heeft drie varianten (A, B, C) — kies bovenaan.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🎯 Trainen in focus-mode</div>
+      <p>Tik op <strong>Start training</strong>. Je ziet één oefening tegelijk, met het gewicht groot in beeld en per set een knop. Een set aftikken start automatisch de rust: <strong>60 s</strong> tussen sets, <strong>2 min</strong> na de laatste. Tien seconden voor het einde hoor je een piep en wordt de volgende set of oefening aangekondigd.</p>
+      <ul>
+        <li><strong>✎ naast een set</strong> — gewicht of reps van die set aanpassen</li>
+        <li><strong>Tik op het gewicht-blok</strong> — startgewicht of sets×reps van de oefening wijzigen</li>
+        <li><strong>Per kant</strong> — welke schijven je op de bar laadt (instelbaar via ⚖️ Schijven in het log)</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🏋️ Automatische progressie</div>
+      <p>Na de laatste set van een oefening vraagt de app hoe het ging:</p>
+      <ul>
+        <li><span class="tag-easy">😎 Te makkelijk</span> → gewicht gaat volgende keer omhoog</li>
+        <li><span class="tag-good">💪 Goed</span> → gewicht blijft</li>
+        <li><span class="tag-hard">😰 Moeilijk</span> → gewicht gaat omlaag</li>
+      </ul>
+      <p>Stappen: +2,5 kg op de bar (+5 kg bij squat en deadlift), volgende maat bij dumbbells en kettlebells. Alles wordt bewaard tussen sessies.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🧊 Deload-week</div>
+      <p>Elke vierde week zet de app automatisch alle gewichten op <strong>60 %</strong> zodat je lichaam herstelt. De weekbalk bovenaan toont de status; tik erop om handmatig te wisselen.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">📊 Trainingslog</div>
+      <p>Streak, weekoverzicht, geschiedenis en per lift een grafiek van je geschatte 1RM. Hier maak je ook een <strong>backup (JSON)</strong>, exporteer je sets als <strong>CSV</strong> of zet je een backup terug.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">🔔 Geluid op iPhone</div>
+      <ul>
+        <li>Tik eenmalig op <strong>Test geluid</strong> zodat iOS audio vrijgeeft</li>
+        <li>Zet de <strong>stille modus</strong> (schuifje aan de zijkant) uit</li>
+        <li>Mediavolume omhoog tijdens het afspelen</li>
+      </ul>
+      <p>Trilling en het grote scherm-alarm werken altijd, ook als geluid geblokkeerd is.</p>
+    </div>
+
+    <div class="help-section">
+      <div class="help-title">💾 Je data</div>
+      <p>Alles staat lokaal op je telefoon — niets gaat naar een server. Wis je de Safari-websitegegevens, dan is je log weg: maak daarom af en toe een backup via het Trainingslog.</p>
+    </div>
+
+    <button class="reset-btn" onclick="closeHelp()" style="margin-top:8px;border-color:#f97316;color:#f97316;">Begrepen</button>
   </div>
 </div>
 
@@ -2741,7 +2818,7 @@ function testSound() {
     speakText('Geluid werkt');
   }, 100);
   // Visuele feedback
-  const btn = event.target;
+  const btn = (typeof event !== 'undefined' && event && event.target && event.target.closest) ? event.target.closest('button') : null;
   if (btn) {
     const originalText = btn.textContent;
     btn.textContent = '✓ Geluid getest!';
@@ -2942,6 +3019,14 @@ function todayVolume() {
 function openLog() {
   document.getElementById('logOverlay').classList.add('open');
   renderLog();
+}
+
+function openHelp() {
+  document.getElementById('helpOverlay').classList.add('open');
+  document.getElementById('helpOverlay').scrollTop = 0;
+}
+function closeHelp() {
+  document.getElementById('helpOverlay').classList.remove('open');
 }
 
 function closeLog() {
